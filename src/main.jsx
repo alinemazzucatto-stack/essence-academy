@@ -198,10 +198,13 @@ function WorkspacePage({ active, tasks, subjects, exams, sessions, setTasks, set
   const weeklyCompleted=tasks.filter(task=>task.done&&isInCurrentWeek(task.completedAt?.slice(0,10)||task.date)).length+sessions.filter(session=>isInCurrentWeek(session.completedAt?.slice(0,10))).length
   const weeklyGoal=subjects.reduce((sum,subject)=>sum+(Number(subject.goal)||0),0)
   const weeklyPct=weeklyGoal?Math.min(100,Math.round(weeklyCompleted/weeklyGoal*100)):0
+  const recentSessions=[...sessions].sort((a,b)=>b.completedAt.localeCompare(a.completedAt)).slice(0,7)
+  const weeklyFocusMinutes=sessions.filter(session=>isInCurrentWeek(session.completedAt?.slice(0,10))).reduce((sum,session)=>sum+session.minutes,0)
   return <>
     <div className="welcome"><div><h1>Metas</h1><p>Metas pequenas e consistentes constroem grandes resultados.</p></div></div>
     <div className="goal-hero"><div><span>PROGRESSO DA SEMANA</span><strong>{weeklyCompleted} de {weeklyGoal} sessões concluídas</strong><p>{weeklyPct>=100?'Meta semanal alcançada!':'Continue no seu ritmo — cada sessão conta.'}</p></div><div className="goal-circle">{weeklyPct}%</div></div>
     <section className="panel phase-page"><div className="panel-head"><div><h2>Metas por matéria</h2><p>Ajuste quantas sessões deseja concluir por semana.</p></div></div><div className="goal-list">{subjects.map(s=>{const stats=weeklySubjectStats(tasks,s,sessions);return <div className="goal-item" key={s.id}><span className="subject-icon" style={{background:s.color+'18',color:s.color}}>{s.name.slice(0,2).toUpperCase()}</span><div><strong>{s.name}</strong><small>{stats.completed} de {stats.goal} concluídas · {stats.pct}%</small><div className="subject-progress"><i style={{width:stats.pct+'%',background:s.color}}/></div></div><div className="stepper"><button aria-label="Diminuir meta" onClick={()=>setSubjects(subjects.map(x=>x.id===s.id?{...x,goal:Math.max(1,x.goal-1)}:x))}>−</button><b>{s.goal}</b><button aria-label="Aumentar meta" onClick={()=>setSubjects(subjects.map(x=>x.id===s.id?{...x,goal:x.goal+1}:x))}>+</button></div></div>})}</div></section>
+    <section className="panel phase-page history-panel"><div className="panel-head"><div><h2>Histórico de foco</h2><p>{weeklyFocusMinutes} minutos registrados nesta semana.</p></div></div>{recentSessions.length?<div className="history-list">{recentSessions.map(session=><div className="history-row" key={session.id}><span className="history-dot" style={{background:subjects.find(subject=>subject.name===session.subject)?.color||'#6d5ed9'}}/><div><strong>{session.subject}</strong><small>{new Date(session.completedAt).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}</small></div><b>{session.minutes} min</b></div>)}</div>:<p className="exam-empty">Conclua uma sessão no Modo Foco para iniciar seu histórico.</p>}</section>
     <EditItemModal editing={editing} onClose={()=>setEditing(null)} subjects={subjects} setTasks={setTasks} setSubjects={setSubjects} setExams={setExams}/>
   </>
 }
@@ -221,6 +224,11 @@ function App() {
   const [running, setRunning] = useState(false)
   const [installPrompt, setInstallPrompt] = useState(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [signOutOpen, setSignOutOpen] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [accountMessage, setAccountMessage] = useState('')
+  const [isOnline, setIsOnline] = useState(()=>navigator.onLine)
   const [settings, setSettings] = useStoredState('essence-settings', { name: 'Aline', notifications: false, reminderTime: '19:00', examDays: 2, theme: 'light', accent: '#6d5ed9', onboardingComplete: false })
   const [session, setSession] = useState(null)
   const [authReady, setAuthReady] = useState(false)
@@ -232,6 +240,11 @@ function App() {
     root.dataset.theme=settings.theme||'light'
     root.style.setProperty('--accent',settings.accent||'#6d5ed9')
   },[settings.theme,settings.accent])
+  useEffect(() => {
+    const updateConnection=()=>setIsOnline(navigator.onLine)
+    window.addEventListener('online',updateConnection);window.addEventListener('offline',updateConnection)
+    return()=>{window.removeEventListener('online',updateConnection);window.removeEventListener('offline',updateConnection)}
+  },[])
   useEffect(() => {
     supabase.auth.getSession().then(({data})=>{ setSession(data.session); setAuthReady(true) })
     const {data:listener}=supabase.auth.onAuthStateChange((event,nextSession)=>{setSession(nextSession);setAuthReady(true);if(event==='PASSWORD_RECOVERY')setPasswordRecovery(true);if(!nextSession)setCloudReady(false)})
@@ -270,7 +283,7 @@ function App() {
     setSyncStatus('saving')
     const syncTimer=setTimeout(async()=>{const{error}=await supabase.from('study_data').upsert({user_id:session.user.id,tasks,subjects,exams,settings,updated_at:new Date().toISOString()});setSyncStatus(error?'error':'synced')},700)
     return()=>clearTimeout(syncTimer)
-  },[tasks,subjects,exams,settings,session?.user?.id,cloudReady])
+  },[tasks,subjects,exams,settings,session?.user?.id,cloudReady,isOnline])
 
   useEffect(() => {
     const captureInstall=event=>{event.preventDefault();setInstallPrompt(event)}
@@ -320,6 +333,33 @@ function App() {
   const todayLabel = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }).format(new Date()).toUpperCase()
   const filtered = useMemo(() => tasks.filter(t => `${t.title} ${t.subject}`.toLowerCase().includes(query.toLowerCase())), [tasks, query])
 
+  async function changePassword() {
+    setAccountMessage('')
+    if(newPassword.length<8){setAccountMessage('A senha precisa ter pelo menos 8 caracteres.');return}
+    if(newPassword!==confirmPassword){setAccountMessage('As senhas precisam ser iguais.');return}
+    const {error}=await supabase.auth.updateUser({password:newPassword})
+    if(error)setAccountMessage('Não foi possível alterar a senha. Tente novamente.')
+    else{setNewPassword('');setConfirmPassword('');setAccountMessage('Senha alterada com sucesso.')}
+  }
+  function exportBackup() {
+    const backup={version:1,exportedAt:new Date().toISOString(),tasks,subjects,exams,settings}
+    const url=URL.createObjectURL(new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}))
+    const link=document.createElement('a');link.href=url;link.download='essence-academy-backup-'+localIso()+'.json';link.click();URL.revokeObjectURL(url)
+    setAccountMessage('Backup baixado com sucesso.')
+  }
+  async function restoreBackup(event) {
+    const file=event.target.files?.[0]
+    if(!file)return
+    try{
+      const backup=JSON.parse(await file.text())
+      if(!Array.isArray(backup.tasks)||!Array.isArray(backup.subjects)||!Array.isArray(backup.exams)||!backup.settings)throw new Error('invalid')
+      if(!window.confirm('Restaurar este backup substituirá os dados atuais. Deseja continuar?'))return
+      setTasks(backup.tasks);setSubjects(backup.subjects);setExams(backup.exams);setSettings(current=>({...current,...backup.settings}))
+      setAccountMessage('Backup restaurado e sincronizado.')
+    }catch{setAccountMessage('Este arquivo não é um backup válido da Essence Academy.')}
+    event.target.value=''
+  }
+
   async function saveSettings(e) {
     e.preventDefault(); const data = new FormData(e.currentTarget)
     let notifications = data.get('notifications') === 'on'
@@ -342,7 +382,7 @@ function App() {
   if (!cloudReady) return <LoadingScreen />
   if (!settings.onboardingComplete) return <Onboarding email={session.user.email} onComplete={(name,names)=>{setSubjects(names.map((subject,index)=>({id:Date.now()+index,name:subject,color:['#7c6ee6','#3ebd93','#f3a85f','#ea7186','#4b9bea','#a868d8'][index%6],goal:3})));setTasks([]);setExams([]);setSettings(current=>({...current,name,onboardingComplete:true}))}} />
 
-  return <div className="app-shell">
+  return <div className="app-shell"><a className="skip-link" href="#main-content">Ir para o conteúdo</a>
     <aside className={`sidebar ${mobileNav ? 'open' : ''}`}>
       <div className="brand"><div className="brand-mark"><img src="/essence-academy-logo-ui.png" alt=""/></div><span>Essence<span>Academy</span></span></div>
       <button className="close-nav" onClick={() => setMobileNav(false)}><X/></button>
@@ -353,7 +393,7 @@ function App() {
       <div className="upgrade-card simple"><div className="mini-stars">✦</div><strong>Um passo por vez.</strong><p>Veja o que importa hoje e avance no seu ritmo.</p></div>
       {installPrompt && <button className="settings install-app" onClick={async()=>{await installPrompt.prompt();setInstallPrompt(null)}}><Download size={18}/> Instalar aplicativo</button>}
       <button className="settings" onClick={()=>setSettingsOpen(true)}><Settings size={18}/> Configurações</button>
-      <button className="settings logout-nav" onClick={()=>supabase.auth.signOut()}><LogOut size={18}/> Sair da conta</button>
+      <button className="settings logout-nav" onClick={()=>setSignOutOpen(true)}><LogOut size={18}/> Sair da conta</button>
     </aside>
 
     <main>
@@ -364,7 +404,7 @@ function App() {
         <div className="avatar">{settings.name.split(/\s+/).slice(0,2).map(n=>n[0]).join('').toUpperCase()}</div>
       </header>
 
-      <section className="content">
+      <section className="content" id="main-content">{!isOnline&&<div className="offline-banner" role="status">Você está sem internet. As alterações serão sincronizadas quando a conexão voltar.</div>}
         {active !== 'Hoje' ? <WorkspacePage active={active} tasks={tasks} subjects={subjects} exams={exams} sessions={settings.focusSessions||[]} setTasks={setTasks} setSubjects={setSubjects} setExams={setExams} openTask={()=>setModal(true)}/> : <>
         <div className="welcome"><div><p className="eyebrow">{todayLabel}</p><h1>Olá, {settings.name.split(' ')[0]}! <span>👋</span></h1><p>Você está indo muito bem. Vamos continuar?</p></div><button className="primary" onClick={() => setModal(true)}><Plus size={19}/> Nova tarefa</button></div>
 
@@ -401,11 +441,15 @@ function App() {
       <button className="primary submit" type="submit">Adicionar tarefa</button>
     </form></div></div>}
     <EditItemModal editing={editing} onClose={()=>setEditing(null)} subjects={subjects} setTasks={setTasks} setSubjects={setSubjects} setExams={setExams}/>
+    {signOutOpen&&<div className="modal-backdrop" onMouseDown={()=>setSignOutOpen(false)}><div className="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="signout-title" onMouseDown={e=>e.stopPropagation()}><div className="confirm-icon signout-icon"><LogOut size={22}/></div><h2 id="signout-title">Sair da sua conta?</h2><p>Seus dados já salvos continuarão sincronizados.</p><div className="confirm-actions"><button onClick={()=>setSignOutOpen(false)}>Cancelar</button><button className="danger" onClick={()=>{setSignOutOpen(false);supabase.auth.signOut()}}>Sair</button></div></div></div>}
     {settingsOpen && <div className="modal-backdrop" onMouseDown={()=>setSettingsOpen(false)}><div className="modal settings-modal" onMouseDown={e=>e.stopPropagation()}><div className="modal-head"><div><h2>Configurações</h2><p>Somente o essencial para sua rotina.</p></div><button onClick={()=>setSettingsOpen(false)}><X/></button></div><form onSubmit={saveSettings}>
       <label>Seu nome<input name="name" defaultValue={settings.name}/></label><div className="appearance-setting"><div className="setting-title"><Palette size={19}/><span><strong>Aparência</strong><small>Escolha como o app combina com você.</small></span></div><div className="appearance-controls"><label>Modo<select name="theme" defaultValue={settings.theme||'light'}><option value="light">Claro</option><option value="dark">Escuro</option></select></label><label>Cor principal<div className="color-choice"><input name="accent" type="color" defaultValue={settings.accent||'#6d5ed9'}/><span>{settings.accent||'#6d5ed9'}</span></div></label></div></div>
       <div className="notification-setting"><div><Bell size={19}/><span><strong>Lembretes</strong><small>Receba avisos enquanto o app estiver aberto.</small></span></div><label className="switch"><input name="notifications" type="checkbox" defaultChecked={settings.notifications}/><i/></label></div>
       <div className="form-row"><label>Horário diário<input name="reminderTime" type="time" defaultValue={settings.reminderTime}/></label><label>Avisar prova antes<select name="examDays" defaultValue={settings.examDays}><option value="1">1 dia</option><option value="2">2 dias</option><option value="3">3 dias</option><option value="7">7 dias</option></select></label></div>
-      <div className="account-row"><span><strong>Conta conectada</strong><small>{session.user.email}</small></span><button type="button" onClick={()=>supabase.auth.signOut()}><LogOut size={16}/> Sair</button></div><p className="permission-note">O navegador solicitará sua permissão ao ativar os lembretes.</p><button className="primary submit">Salvar configurações</button>
+      <section className="settings-section"><div className="setting-title"><span><strong>Segurança</strong><small>Altere a senha da sua conta.</small></span></div><label>Nova senha<PasswordField minLength="8" value={newPassword} onChange={e=>setNewPassword(e.target.value)} autoComplete="new-password"/></label><label>Confirmar nova senha<PasswordField minLength="8" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} autoComplete="new-password"/></label><button type="button" className="secondary-action" onClick={changePassword}>Alterar senha</button></section>
+      <section className="settings-section"><div className="setting-title"><span><strong>Backup dos estudos</strong><small>Baixe ou restaure seus dados.</small></span></div><div className="backup-actions"><button type="button" className="secondary-action" onClick={exportBackup}><Download size={15}/> Baixar backup</button><label className="secondary-action file-action">Restaurar backup<input type="file" accept="application/json,.json" onChange={restoreBackup}/></label></div></section>
+      {accountMessage&&<div className="auth-message account-message" role="status">{accountMessage}</div>}
+      <div className="account-row"><span><strong>Conta conectada</strong><small>{session.user.email}</small></span><button type="button" onClick={()=>setSignOutOpen(true)}><LogOut size={16}/> Sair</button></div><p className="permission-note">O navegador solicitará sua permissão ao ativar os lembretes.</p><button className="primary submit">Salvar configurações</button>
     </form></div></div>}
   </div>
 }
