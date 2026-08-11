@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Bell, BookOpen, CalendarDays, Check, ChevronRight, Clock3, Download, Flame, LayoutDashboard, ListTodo, Menu, Plus, Search, Settings, Sparkles, Target, Timer, Trash2, X } from 'lucide-react'
+import { Bell, BookOpen, CalendarDays, Check, ChevronRight, Clock3, Cloud, Download, Flame, LayoutDashboard, ListTodo, LogOut, Mail, Menu, Plus, Search, Settings, Sparkles, Target, Timer, Trash2, X } from 'lucide-react'
 import './styles.css'
+import { supabase } from './supabase'
 
 const initialSubjects = [
   { id: 1, name: 'Matemática', color: '#7c6ee6', goal: 5 },
@@ -26,6 +27,20 @@ function useStoredState(key, fallback) {
 }
 
 
+function AuthScreen() {
+  const [email, setEmail] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState('')
+  async function sendLink(e) {
+    e.preventDefault(); setLoading(true); setMessage('')
+    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin, shouldCreateUser: true } })
+    setMessage(error ? 'Não foi possível enviar. Verifique o e-mail e tente novamente.' : 'Enviamos um link de acesso para o seu e-mail.')
+    setLoading(false)
+  }
+  return <main className="auth-screen"><section className="auth-card"><div className="brand auth-brand"><div className="brand-mark"><Sparkles size={20}/></div><span>Essence<span>Academy</span></span></div><div className="auth-icon"><Mail size={24}/></div><h1>Seus estudos, em todos os lugares.</h1><p>Entre com seu e-mail. Você receberá um link seguro, sem precisar criar senha.</p><form onSubmit={sendLink}><label>E-mail<input type="email" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="voce@email.com" autoFocus/></label><button className="primary" disabled={loading}>{loading?'Enviando...':'Enviar link de acesso'}</button></form>{message&&<div className="auth-message">{message}</div>}<small>Ao entrar pela primeira vez, seus dados deste dispositivo serão salvos na sua conta.</small></section></main>
+}
+
+function LoadingScreen() { return <main className="auth-screen"><div className="app-loading"><div className="brand-mark"><Sparkles size={20}/></div><p>Carregando sua rotina...</p></div></main> }
 function DeleteButton({ onConfirm, item, className = '', size = 17 }) {
   const [open, setOpen] = useState(false)
   return <>
@@ -84,17 +99,99 @@ function App() {
   const [installPrompt, setInstallPrompt] = useState(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settings, setSettings] = useStoredState('essence-settings', { name: 'Aline', notifications: false, reminderTime: '19:00', examDays: 2 })
+  const [session, setSession] = useState(null)
+  const [authReady, setAuthReady] = useState(false)
+  const [cloudReady, setCloudReady] = useState(false)
+  const [syncStatus, setSyncStatus] = useState('local')
 
+  useEffect(() => {
+    supabase.auth.getSession().then(({data})=>{ setSession(data.session); setAuthReady(true) })
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession)=>{ setSession(nextSession); setAuthReady(true); if(!nextSession)setCloudReady(false) })
+    return () => listener.subscription.unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    if (!session?.user?.id) return
+    let active = true
+    async function loadCloudData() {
+      setSyncStatus('loading')
+      const { data, error } = await supabase.from('study_data').select('tasks,subjects,exams,settings').eq('user_id',session.user.id).maybeSingle()
+      if (!active) return
+      if (data) { setTasks(data.tasks); setSubjects(data.subjects); setExams(data.exams); setSettings(current=>({...current,...data.settings})) }
+      else if (!error) await supabase.from('study_data').insert({ user_id:session.user.id, tasks, subjects, exams, settings })
+      setCloudReady(true); setSyncStatus(error?'error':'synced')
+    }
+    loadCloudData(); return () => { active=false }
+  }, [session?.user?.id])
+
+  useEffect(() => {
+    if (!session?.user?.id || !cloudReady) return
+    setSyncStatus('saving')
+    const syncTimer = setTimeout(async()=>{ const {error}=await supabase.from('study_data').upsert({user_id:session.user.id,tasks,subjects,exams,settings,updated_at:new Date().toISOString()}); setSyncStatus(error?'error':'synced') },700)
+    return () => clearTimeout(syncTimer)
+  }, [tasks,subjects,exams,settings,session?.user?.id,cloudReady])
   useEffect(() => {
     const captureInstall = event => { event.preventDefault(); setInstallPrompt(event) }
     window.addEventListener('beforeinstallprompt', captureInstall)
     return () => window.removeEventListener('beforeinstallprompt', captureInstall)
   }, [])
   useEffect(() => {
+    supabase.auth.getSession().then(({data})=>{ setSession(data.session); setAuthReady(true) })
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession)=>{ setSession(nextSession); setAuthReady(true); if(!nextSession)setCloudReady(false) })
+    return () => listener.subscription.unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    if (!session?.user?.id) return
+    let active = true
+    async function loadCloudData() {
+      setSyncStatus('loading')
+      const { data, error } = await supabase.from('study_data').select('tasks,subjects,exams,settings').eq('user_id',session.user.id).maybeSingle()
+      if (!active) return
+      if (data) { setTasks(data.tasks); setSubjects(data.subjects); setExams(data.exams); setSettings(current=>({...current,...data.settings})) }
+      else if (!error) await supabase.from('study_data').insert({ user_id:session.user.id, tasks, subjects, exams, settings })
+      setCloudReady(true); setSyncStatus(error?'error':'synced')
+    }
+    loadCloudData(); return () => { active=false }
+  }, [session?.user?.id])
+
+  useEffect(() => {
+    if (!session?.user?.id || !cloudReady) return
+    setSyncStatus('saving')
+    const syncTimer = setTimeout(async()=>{ const {error}=await supabase.from('study_data').upsert({user_id:session.user.id,tasks,subjects,exams,settings,updated_at:new Date().toISOString()}); setSyncStatus(error?'error':'synced') },700)
+    return () => clearTimeout(syncTimer)
+  }, [tasks,subjects,exams,settings,session?.user?.id,cloudReady])
+  useEffect(() => {
     if (!running) return
     const id = setInterval(() => setTimer(v => v > 0 ? v - 1 : 25 * 60), 1000)
     return () => clearInterval(id)
   }, [running])
+  useEffect(() => {
+    supabase.auth.getSession().then(({data})=>{ setSession(data.session); setAuthReady(true) })
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession)=>{ setSession(nextSession); setAuthReady(true); if(!nextSession)setCloudReady(false) })
+    return () => listener.subscription.unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    if (!session?.user?.id) return
+    let active = true
+    async function loadCloudData() {
+      setSyncStatus('loading')
+      const { data, error } = await supabase.from('study_data').select('tasks,subjects,exams,settings').eq('user_id',session.user.id).maybeSingle()
+      if (!active) return
+      if (data) { setTasks(data.tasks); setSubjects(data.subjects); setExams(data.exams); setSettings(current=>({...current,...data.settings})) }
+      else if (!error) await supabase.from('study_data').insert({ user_id:session.user.id, tasks, subjects, exams, settings })
+      setCloudReady(true); setSyncStatus(error?'error':'synced')
+    }
+    loadCloudData(); return () => { active=false }
+  }, [session?.user?.id])
+
+  useEffect(() => {
+    if (!session?.user?.id || !cloudReady) return
+    setSyncStatus('saving')
+    const syncTimer = setTimeout(async()=>{ const {error}=await supabase.from('study_data').upsert({user_id:session.user.id,tasks,subjects,exams,settings,updated_at:new Date().toISOString()}); setSyncStatus(error?'error':'synced') },700)
+    return () => clearTimeout(syncTimer)
+  }, [tasks,subjects,exams,settings,session?.user?.id,cloudReady])
   useEffect(() => {
     if (!settings.notifications || !('Notification' in window) || Notification.permission !== 'granted') return
     const checkReminders = async () => {
@@ -139,6 +236,10 @@ function App() {
   const mins = String(Math.floor(timer / 60)).padStart(2, '0')
   const secs = String(timer % 60).padStart(2, '0')
 
+  if (!authReady) return <LoadingScreen />
+  if (!session) return <AuthScreen />
+  if (!cloudReady) return <LoadingScreen />
+
   return <div className="app-shell">
     <aside className={`sidebar ${mobileNav ? 'open' : ''}`}>
       <div className="brand"><div className="brand-mark"><Sparkles size={20}/></div><span>Essence<span>Academy</span></span></div>
@@ -156,7 +257,7 @@ function App() {
       <header>
         <button className="menu-button" onClick={() => setMobileNav(true)}><Menu/></button>
         <div className="search"><Search size={18}/><input placeholder="Buscar tarefa ou matéria..." value={query} onChange={e => setQuery(e.target.value)}/></div>
-        <div className="streak"><Check size={18}/> <b>{progress}%</b> concluído</div>
+        <div className={`sync-state ${syncStatus}`}><Cloud size={16}/> {syncStatus==='saving'?'Salvando...':syncStatus==='error'?'Sem conexão':'Sincronizado'}</div><div className="streak"><Check size={18}/> <b>{progress}%</b> concluído</div>
         <div className="avatar">{settings.name.split(/\s+/).slice(0,2).map(n=>n[0]).join('').toUpperCase()}</div>
       </header>
 
@@ -200,7 +301,7 @@ function App() {
       <label>Seu nome<input name="name" defaultValue={settings.name}/></label>
       <div className="notification-setting"><div><Bell size={19}/><span><strong>Lembretes</strong><small>Receba avisos enquanto o app estiver aberto.</small></span></div><label className="switch"><input name="notifications" type="checkbox" defaultChecked={settings.notifications}/><i/></label></div>
       <div className="form-row"><label>Horário diário<input name="reminderTime" type="time" defaultValue={settings.reminderTime}/></label><label>Avisar prova antes<select name="examDays" defaultValue={settings.examDays}><option value="1">1 dia</option><option value="2">2 dias</option><option value="3">3 dias</option><option value="7">7 dias</option></select></label></div>
-      <p className="permission-note">O navegador solicitará sua permissão ao ativar os lembretes.</p><button className="primary submit">Salvar configurações</button>
+      <div className="account-row"><span><strong>Conta conectada</strong><small>{session.user.email}</small></span><button type="button" onClick={()=>supabase.auth.signOut()}><LogOut size={16}/> Sair</button></div><p className="permission-note">O navegador solicitará sua permissão ao ativar os lembretes.</p><button className="primary submit">Salvar configurações</button>
     </form></div></div>}
   </div>
 }
