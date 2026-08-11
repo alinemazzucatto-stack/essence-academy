@@ -41,6 +41,13 @@ function AuthScreen() {
 }
 
 function LoadingScreen() { return <main className="auth-screen"><div className="app-loading"><div className="brand-mark"><Sparkles size={20}/></div><p>Carregando sua rotina...</p></div></main> }
+function Onboarding({ email, onComplete }) {
+  const options = ['Matemática','Português','Biologia','História','Geografia','Redação']
+  const [name,setName] = useState(email?.split('@')[0] || '')
+  const [selected,setSelected] = useState([])
+  const toggle = item => setSelected(v=>v.includes(item)?v.filter(x=>x!==item):[...v,item])
+  return <main className="onboarding-screen"><section className="onboarding-card"><div className="onboarding-step">PRIMEIRO ACESSO</div><div className="brand auth-brand"><div className="brand-mark"><Sparkles size={20}/></div><span>Essence<span>Academy</span></span></div><h1>Vamos preparar seu espaço.</h1><p>São apenas duas escolhas. Você poderá alterar tudo depois.</p><form onSubmit={e=>{e.preventDefault();onComplete(name.trim()||'Estudante',selected)}}><label>Como podemos chamar você?<input value={name} onChange={e=>setName(e.target.value)} required autoFocus/></label><fieldset><legend>Quais matérias você estuda?</legend><div className="subject-choices">{options.map(item=><button type="button" key={item} className={selected.includes(item)?'chosen':''} onClick={()=>toggle(item)}>{selected.includes(item)&&<Check size={14}/>} {item}</button>)}</div></fieldset><button className="primary" disabled={!selected.length}>Começar meus estudos</button></form><small>Escolha pelo menos uma matéria.</small></section></main>
+}
 function DeleteButton({ onConfirm, item, className = '', size = 17 }) {
   const [open, setOpen] = useState(false)
   return <>
@@ -98,121 +105,73 @@ function App() {
   const [running, setRunning] = useState(false)
   const [installPrompt, setInstallPrompt] = useState(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [settings, setSettings] = useStoredState('essence-settings', { name: 'Aline', notifications: false, reminderTime: '19:00', examDays: 2 })
+  const [settings, setSettings] = useStoredState('essence-settings', { name: 'Aline', notifications: false, reminderTime: '19:00', examDays: 2, onboardingComplete: false })
   const [session, setSession] = useState(null)
   const [authReady, setAuthReady] = useState(false)
   const [cloudReady, setCloudReady] = useState(false)
   const [syncStatus, setSyncStatus] = useState('local')
-
   useEffect(() => {
     supabase.auth.getSession().then(({data})=>{ setSession(data.session); setAuthReady(true) })
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession)=>{ setSession(nextSession); setAuthReady(true); if(!nextSession)setCloudReady(false) })
-    return () => listener.subscription.unsubscribe()
-  }, [])
+    const {data:listener}=supabase.auth.onAuthStateChange((_event,nextSession)=>{setSession(nextSession);setAuthReady(true);if(!nextSession)setCloudReady(false)})
+    return()=>listener.subscription.unsubscribe()
+  },[])
 
   useEffect(() => {
-    if (!session?.user?.id) return
-    let active = true
-    async function loadCloudData() {
+    if(!session?.user?.id)return
+    let active=true
+    async function loadCloudData(){
       setSyncStatus('loading')
-      const { data, error } = await supabase.from('study_data').select('tasks,subjects,exams,settings').eq('user_id',session.user.id).maybeSingle()
-      if (!active) return
-      if (data) { setTasks(data.tasks); setSubjects(data.subjects); setExams(data.exams); setSettings(current=>({...current,...data.settings})) }
-      else if (!error) await supabase.from('study_data').insert({ user_id:session.user.id, tasks, subjects, exams, settings })
-      setCloudReady(true); setSyncStatus(error?'error':'synced')
-    }
-    loadCloudData(); return () => { active=false }
-  }, [session?.user?.id])
-
-  useEffect(() => {
-    if (!session?.user?.id || !cloudReady) return
-    setSyncStatus('saving')
-    const syncTimer = setTimeout(async()=>{ const {error}=await supabase.from('study_data').upsert({user_id:session.user.id,tasks,subjects,exams,settings,updated_at:new Date().toISOString()}); setSyncStatus(error?'error':'synced') },700)
-    return () => clearTimeout(syncTimer)
-  }, [tasks,subjects,exams,settings,session?.user?.id,cloudReady])
-  useEffect(() => {
-    const captureInstall = event => { event.preventDefault(); setInstallPrompt(event) }
-    window.addEventListener('beforeinstallprompt', captureInstall)
-    return () => window.removeEventListener('beforeinstallprompt', captureInstall)
-  }, [])
-  useEffect(() => {
-    supabase.auth.getSession().then(({data})=>{ setSession(data.session); setAuthReady(true) })
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession)=>{ setSession(nextSession); setAuthReady(true); if(!nextSession)setCloudReady(false) })
-    return () => listener.subscription.unsubscribe()
-  }, [])
-
-  useEffect(() => {
-    if (!session?.user?.id) return
-    let active = true
-    async function loadCloudData() {
-      setSyncStatus('loading')
-      const { data, error } = await supabase.from('study_data').select('tasks,subjects,exams,settings').eq('user_id',session.user.id).maybeSingle()
-      if (!active) return
-      if (data) { setTasks(data.tasks); setSubjects(data.subjects); setExams(data.exams); setSettings(current=>({...current,...data.settings})) }
-      else if (!error) await supabase.from('study_data').insert({ user_id:session.user.id, tasks, subjects, exams, settings })
-      setCloudReady(true); setSyncStatus(error?'error':'synced')
-    }
-    loadCloudData(); return () => { active=false }
-  }, [session?.user?.id])
-
-  useEffect(() => {
-    if (!session?.user?.id || !cloudReady) return
-    setSyncStatus('saving')
-    const syncTimer = setTimeout(async()=>{ const {error}=await supabase.from('study_data').upsert({user_id:session.user.id,tasks,subjects,exams,settings,updated_at:new Date().toISOString()}); setSyncStatus(error?'error':'synced') },700)
-    return () => clearTimeout(syncTimer)
-  }, [tasks,subjects,exams,settings,session?.user?.id,cloudReady])
-  useEffect(() => {
-    if (!running) return
-    const id = setInterval(() => setTimer(v => v > 0 ? v - 1 : 25 * 60), 1000)
-    return () => clearInterval(id)
-  }, [running])
-  useEffect(() => {
-    supabase.auth.getSession().then(({data})=>{ setSession(data.session); setAuthReady(true) })
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession)=>{ setSession(nextSession); setAuthReady(true); if(!nextSession)setCloudReady(false) })
-    return () => listener.subscription.unsubscribe()
-  }, [])
-
-  useEffect(() => {
-    if (!session?.user?.id) return
-    let active = true
-    async function loadCloudData() {
-      setSyncStatus('loading')
-      const { data, error } = await supabase.from('study_data').select('tasks,subjects,exams,settings').eq('user_id',session.user.id).maybeSingle()
-      if (!active) return
-      if (data) { setTasks(data.tasks); setSubjects(data.subjects); setExams(data.exams); setSettings(current=>({...current,...data.settings})) }
-      else if (!error) await supabase.from('study_data').insert({ user_id:session.user.id, tasks, subjects, exams, settings })
-      setCloudReady(true); setSyncStatus(error?'error':'synced')
-    }
-    loadCloudData(); return () => { active=false }
-  }, [session?.user?.id])
-
-  useEffect(() => {
-    if (!session?.user?.id || !cloudReady) return
-    setSyncStatus('saving')
-    const syncTimer = setTimeout(async()=>{ const {error}=await supabase.from('study_data').upsert({user_id:session.user.id,tasks,subjects,exams,settings,updated_at:new Date().toISOString()}); setSyncStatus(error?'error':'synced') },700)
-    return () => clearTimeout(syncTimer)
-  }, [tasks,subjects,exams,settings,session?.user?.id,cloudReady])
-  useEffect(() => {
-    if (!settings.notifications || !('Notification' in window) || Notification.permission !== 'granted') return
-    const checkReminders = async () => {
-      const now = new Date(), dateKey = now.toISOString().slice(0,10)
-      const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
-      const registration = await navigator.serviceWorker?.ready
-      if (time === settings.reminderTime && localStorage.getItem('essence-daily-notified') !== dateKey) {
-        registration?.showNotification('Hora de estudar ✦', { body: `Você tem ${tasks.filter(t=>!t.done).length} tarefa(s) pendente(s).`, icon: '/icons/icon-192.png', tag: 'daily-study' })
-        localStorage.setItem('essence-daily-notified', dateKey)
+      const userId=session.user.id, owner=localStorage.getItem('essence-local-owner')
+      const {data,error}=await supabase.from('study_data').select('tasks,subjects,exams,settings').eq('user_id',userId).maybeSingle()
+      if(!active)return
+      if(error){
+        if(owner!==userId){setTasks([]);setSubjects([]);setExams([]);setSettings({name:session.user.email?.split('@')[0]||'Estudante',notifications:false,reminderTime:'19:00',examDays:2,onboardingComplete:false})}
+        setCloudReady(true);setSyncStatus('error');return
       }
-      const upcoming = exams.map(exam=>({...exam,days:Math.ceil((new Date(exam.date+'T12:00:00')-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/86400000)})).filter(exam=>exam.days>=0&&exam.days<=settings.examDays).sort((a,b)=>a.days-b.days)[0]
-      const examKey = upcoming ? `${upcoming.id}-${dateKey}` : ''
-      if (upcoming && localStorage.getItem('essence-exam-notified') !== examKey) {
-        registration?.showNotification('Prova se aproximando', { body: `${upcoming.title} — ${upcoming.days===0?'hoje':`em ${upcoming.days} dia(s)`}.`, icon: '/icons/icon-192.png', tag: 'upcoming-exam' })
-        localStorage.setItem('essence-exam-notified', examKey)
+      if(data){
+        const complete=data.settings?.onboardingComplete??Boolean(data.tasks?.length||data.subjects?.length||data.exams?.length)
+        setTasks(data.tasks||[]);setSubjects(data.subjects||[]);setExams(data.exams||[]);setSettings(current=>({...current,...data.settings,onboardingComplete:complete}))
+      }else{
+        const canMigrate=!owner||owner===userId
+        const freshSettings={name:session.user.email?.split('@')[0]||'Estudante',notifications:false,reminderTime:'19:00',examDays:2,onboardingComplete:false}
+        const payload=canMigrate?{tasks,subjects,exams,settings:{...settings,onboardingComplete:settings.onboardingComplete??Boolean(tasks.length||subjects.length||exams.length)}}:{tasks:[],subjects:[],exams:[],settings:freshSettings}
+        if(!canMigrate){setTasks([]);setSubjects([]);setExams([]);setSettings(freshSettings)}else setSettings(payload.settings)
+        await supabase.from('study_data').insert({user_id:userId,...payload})
       }
+      localStorage.setItem('essence-local-owner',userId);setCloudReady(true);setSyncStatus('synced')
     }
-    checkReminders(); const reminderId = setInterval(checkReminders, 30000)
-    return () => clearInterval(reminderId)
-  }, [settings, tasks, exams])
+    loadCloudData();return()=>{active=false}
+  },[session?.user?.id])
 
+  useEffect(() => {
+    if(!session?.user?.id||!cloudReady)return
+    setSyncStatus('saving')
+    const syncTimer=setTimeout(async()=>{const{error}=await supabase.from('study_data').upsert({user_id:session.user.id,tasks,subjects,exams,settings,updated_at:new Date().toISOString()});setSyncStatus(error?'error':'synced')},700)
+    return()=>clearTimeout(syncTimer)
+  },[tasks,subjects,exams,settings,session?.user?.id,cloudReady])
+
+  useEffect(() => {
+    const captureInstall=event=>{event.preventDefault();setInstallPrompt(event)}
+    window.addEventListener('beforeinstallprompt',captureInstall);return()=>window.removeEventListener('beforeinstallprompt',captureInstall)
+  },[])
+
+  useEffect(() => {
+    if(!running)return
+    const id=setInterval(()=>setTimer(v=>v>0?v-1:25*60),1000);return()=>clearInterval(id)
+  },[running])
+
+  useEffect(() => {
+    if(!settings.notifications||!('Notification'in window)||Notification.permission!=='granted')return
+    const checkReminders=async()=>{
+      const now=new Date(),dateKey=now.toISOString().slice(0,10),time=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
+      const registration=await navigator.serviceWorker?.ready
+      if(time===settings.reminderTime&&localStorage.getItem('essence-daily-notified')!==dateKey){registration?.showNotification('Hora de estudar ✦',{body:`Você tem ${tasks.filter(t=>!t.done).length} tarefa(s) pendente(s).`,icon:'/icons/icon-192.png',tag:'daily-study'});localStorage.setItem('essence-daily-notified',dateKey)}
+      const upcoming=exams.map(exam=>({...exam,days:Math.ceil((new Date(exam.date+'T12:00:00')-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/86400000)})).filter(exam=>exam.days>=0&&exam.days<=settings.examDays).sort((a,b)=>a.days-b.days)[0]
+      const examKey=upcoming?`${upcoming.id}-${dateKey}`:''
+      if(upcoming&&localStorage.getItem('essence-exam-notified')!==examKey){registration?.showNotification('Prova se aproximando',{body:`${upcoming.title} — ${upcoming.days===0?'hoje':`em ${upcoming.days} dia(s)`}.`,icon:'/icons/icon-192.png',tag:'upcoming-exam'});localStorage.setItem('essence-exam-notified',examKey)}
+    }
+    checkReminders();const reminderId=setInterval(checkReminders,30000);return()=>clearInterval(reminderId)
+  },[settings,tasks,exams])
   const completed = tasks.filter(t => t.done).length
   const progress = tasks.length ? Math.round(completed / tasks.length * 100) : 0
   const studiedMinutes = tasks.filter(t => t.done).reduce((sum, t) => sum + t.duration, 0)
@@ -239,6 +198,7 @@ function App() {
   if (!authReady) return <LoadingScreen />
   if (!session) return <AuthScreen />
   if (!cloudReady) return <LoadingScreen />
+  if (!settings.onboardingComplete) return <Onboarding email={session.user.email} onComplete={(name,names)=>{setSubjects(names.map((subject,index)=>({id:Date.now()+index,name:subject,color:['#7c6ee6','#3ebd93','#f3a85f','#ea7186','#4b9bea','#a868d8'][index%6],goal:3})));setTasks([]);setExams([]);setSettings(current=>({...current,name,onboardingComplete:true}))}} />
 
   return <div className="app-shell">
     <aside className={`sidebar ${mobileNav ? 'open' : ''}`}>
