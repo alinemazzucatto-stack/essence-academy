@@ -26,3 +26,5 @@
 .brand-mark img{width:100%;height:100%;display:block;object-fit:contain}.auth-brand .brand-mark{width:44px;height:44px}.app-loading .brand-mark{width:52px;height:52px}
 
 @media(max-width:1000px){.sidebar>.brand{padding-right:48px;align-items:center}.sidebar>.brand>span{display:flex;flex-direction:column;line-height:1.02;gap:3px}.sidebar>.brand>span>span{display:block;font-size:14px;letter-spacing:.5px}.sidebar>.close-nav{right:17px;top:27px;width:38px;height:38px;border-radius:11px;background:#f3f1f7;display:grid;place-items:center;color:#696575}.sidebar>.close-nav:hover{background:#ece8f6;color:var(--accent)}:root[data-theme="dark"] .sidebar>.close-nav{background:#302d3e;color:#eeedf5}}
+
+.logout-nav{margin-top:2px!important;color:#c9475b!important}.logout-nav:hover{background:#fff0f2!important}:root[data-theme="dark"] .logout-nav:hover{background:#442a34!important}

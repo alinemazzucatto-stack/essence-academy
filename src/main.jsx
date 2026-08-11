@@ -251,6 +251,7 @@ function App() {
       <div className="upgrade-card simple"><div className="mini-stars">✦</div><strong>Um passo por vez.</strong><p>Veja o que importa hoje e avance no seu ritmo.</p></div>
       {installPrompt && <button className="settings install-app" onClick={async()=>{await installPrompt.prompt();setInstallPrompt(null)}}><Download size={18}/> Instalar aplicativo</button>}
       <button className="settings" onClick={()=>setSettingsOpen(true)}><Settings size={18}/> Configurações</button>
+      <button className="settings logout-nav" onClick={()=>supabase.auth.signOut()}><LogOut size={18}/> Sair da conta</button>
     </aside>
 
     <main>
