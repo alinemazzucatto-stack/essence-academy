@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Bell, BookOpen, CalendarDays, Check, ChevronRight, Clock3, Cloud, Download, Flame, LayoutDashboard, ListTodo, LogOut, Mail, Menu, Plus, Search, Settings, Sparkles, Target, Timer, Trash2, X } from 'lucide-react'
+import { Bell, BookOpen, CalendarDays, Check, ChevronRight, Clock3, Cloud, Download, Eye, EyeOff, Flame, LayoutDashboard, ListTodo, LogOut, Mail, Menu, Plus, Search, Settings, Sparkles, Target, Timer, Trash2, X } from 'lucide-react'
 import './styles.css'
 import { supabase } from './supabase'
 
@@ -27,6 +27,11 @@ function useStoredState(key, fallback) {
 }
 
 
+function PasswordField({ value, onChange, ...props }) {
+  const [visible, setVisible] = useState(false)
+  return <div className="password-field"><input {...props} type={visible?'text':'password'} value={value} onChange={onChange}/><button type="button" onClick={()=>setVisible(current=>!current)} aria-label={visible?'Ocultar senha':'Mostrar senha'} title={visible?'Ocultar senha':'Mostrar senha'}>{visible?<EyeOff size={18}/>:<Eye size={18}/>}</button></div>
+}
+
 function AuthScreen() {
   const [mode, setMode] = useState('login')
   const [email, setEmail] = useState('')
@@ -49,7 +54,7 @@ function AuthScreen() {
   }
   const title = mode === 'signup' ? 'Crie sua conta.' : mode === 'forgot' ? 'Recupere sua senha.' : 'Bem-vinda de volta.'
   const description = mode === 'signup' ? 'Use seu e-mail e escolha uma senha para começar.' : mode === 'forgot' ? 'Informe seu e-mail para receber as instruções de recuperação.' : 'Entre com seu e-mail e sua senha.'
-  return <main className="auth-screen"><section className="auth-card"><div className="brand auth-brand"><div className="brand-mark"><Sparkles size={20}/></div><span>Essence<span>Academy</span></span></div><div className="auth-icon"><Mail size={24}/></div><h1>{title}</h1><p>{description}</p><form onSubmit={submit}><label>E-mail<input type="email" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="voce@email.com" autoFocus autoComplete="email"/></label>{mode !== 'forgot'&&<label>Senha<input type="password" required minLength="8" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Mínimo de 8 caracteres" autoComplete={mode==='login'?'current-password':'new-password'}/></label>}<button className="primary" disabled={loading}>{loading?'Aguarde...':mode==='signup'?'Criar conta':mode==='forgot'?'Enviar instruções':'Entrar'}</button></form>{message&&<div className="auth-message">{message}</div>}<div className="auth-links">{mode==='login'&&<><button type="button" onClick={()=>changeMode('forgot')}>Esqueci minha senha</button><button type="button" onClick={()=>changeMode('signup')}>Criar uma conta</button></>}{mode!=='login'&&<button type="button" onClick={()=>changeMode('login')}>Voltar para entrar</button>}</div><small>Seus estudos ficam sincronizados com segurança na sua conta.</small></section></main>
+  return <main className="auth-screen"><section className="auth-card"><div className="brand auth-brand"><div className="brand-mark"><Sparkles size={20}/></div><span>Essence<span>Academy</span></span></div><div className="auth-icon"><Mail size={24}/></div><h1>{title}</h1><p>{description}</p><form onSubmit={submit}><label>E-mail<input type="email" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="voce@email.com" autoFocus autoComplete="email"/></label>{mode !== 'forgot'&&<label>Senha<PasswordField required minLength="8" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Mínimo de 8 caracteres" autoComplete={mode==='login'?'current-password':'new-password'}/></label>}{mode==='login'&&<button type="button" className="forgot-link" onClick={()=>changeMode('forgot')}>Esqueci minha senha</button>}<button className="primary" disabled={loading}>{loading?'Aguarde...':mode==='signup'?'Criar conta':mode==='forgot'?'Enviar instruções':'Entrar'}</button></form>{message&&<div className="auth-message">{message}</div>}<div className="auth-links">{mode==='login'&&<button type="button" onClick={()=>changeMode('signup')}>Criar uma conta</button>}{mode!=='login'&&<button type="button" onClick={()=>changeMode('login')}>Voltar para entrar</button>}</div><small>Seus estudos ficam sincronizados com segurança na sua conta.</small></section></main>
 }
 
 function PasswordResetScreen({ onDone }) {
@@ -66,7 +71,7 @@ function PasswordResetScreen({ onDone }) {
     else onDone()
     setLoading(false)
   }
-  return <main className="auth-screen"><section className="auth-card"><div className="brand auth-brand"><div className="brand-mark"><Sparkles size={20}/></div><span>Essence<span>Academy</span></span></div><h1>Crie uma nova senha.</h1><p>Escolha uma senha com pelo menos 8 caracteres.</p><form onSubmit={save}><label>Nova senha<input type="password" required minLength="8" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="new-password" autoFocus/></label><label>Confirmar senha<input type="password" required minLength="8" value={confirmation} onChange={e=>setConfirmation(e.target.value)} autoComplete="new-password"/></label><button className="primary" disabled={loading}>{loading?'Salvando...':'Salvar nova senha'}</button></form>{message&&<div className="auth-message auth-error">{message}</div>}</section></main>
+  return <main className="auth-screen"><section className="auth-card"><div className="brand auth-brand"><div className="brand-mark"><Sparkles size={20}/></div><span>Essence<span>Academy</span></span></div><h1>Crie uma nova senha.</h1><p>Escolha uma senha com pelo menos 8 caracteres.</p><form onSubmit={save}><label>Nova senha<PasswordField required minLength="8" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="new-password" autoFocus/></label><label>Confirmar senha<PasswordField required minLength="8" value={confirmation} onChange={e=>setConfirmation(e.target.value)} autoComplete="new-password"/></label><button className="primary" disabled={loading}>{loading?'Salvando...':'Salvar nova senha'}</button></form>{message&&<div className="auth-message auth-error">{message}</div>}</section></main>
 }
 function LoadingScreen() { return <main className="auth-screen"><div className="app-loading"><div className="brand-mark"><Sparkles size={20}/></div><p>Carregando sua rotina...</p></div></main> }
 function Onboarding({ email, onComplete }) {
