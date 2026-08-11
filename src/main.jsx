@@ -46,8 +46,10 @@ function isInCurrentWeek(value) {
   const date=new Date(iso+'T12:00:00')
   return date>=start&&date<=new Date(end.getFullYear(),end.getMonth(),end.getDate(),23,59,59)
 }
-function weeklySubjectStats(tasks,subject) {
-  const completed=tasks.filter(task=>task.subject===subject.name&&task.done&&isInCurrentWeek(task.completedAt?.slice(0,10)||task.date)).length
+function weeklySubjectStats(tasks,subject,sessions=[]) {
+  const taskCount=tasks.filter(task=>task.subject===subject.name&&task.done&&isInCurrentWeek(task.completedAt?.slice(0,10)||task.date)).length
+  const sessionCount=sessions.filter(session=>session.subject===subject.name&&isInCurrentWeek(session.completedAt?.slice(0,10))).length
+  const completed=taskCount+sessionCount
   const goal=Math.max(1,Number(subject.goal)||1)
   return {completed,goal,pct:Math.min(100,Math.round(completed/goal*100))}
 }
@@ -144,7 +146,7 @@ function EditItemModal({ editing, onClose, subjects, setTasks, setSubjects, setE
     <button className="primary submit">Salvar alterações</button>
   </form></div></div>
 }
-function WorkspacePage({ active, tasks, subjects, exams, setTasks, setSubjects, setExams, openTask }) {
+function WorkspacePage({ active, tasks, subjects, exams, sessions, setTasks, setSubjects, setExams, openTask }) {
   const toggle = id => setTasks(tasks.map(t => t.id === id ? {...t, done: !t.done, completedAt: !t.done ? new Date().toISOString() : null} : t))
   const remove = id => setTasks(tasks.filter(t => t.id !== id))
   const [filter, setFilter] = useState('Todas')
@@ -189,17 +191,17 @@ function WorkspacePage({ active, tasks, subjects, exams, setTasks, setSubjects, 
   if (active === 'Matérias') return <>
     <div className="welcome"><div><h1>Matérias</h1><p>Centralize todas as áreas da sua jornada.</p></div></div>
     <form className="quick-add" onSubmit={e=>{e.preventDefault();if(!subjectName.trim())return;setSubjects([...subjects,{id:Date.now(),name:subjectName,color:['#4b9bea','#a868d8','#3ebd93'][subjects.length%3],goal:3}]);setSubjectName('')}}><input value={subjectName} onChange={e=>setSubjectName(e.target.value)} placeholder="Nome da nova matéria"/><button className="primary"><Plus size={18}/> Adicionar</button></form>
-    <section className="subjects phase-page"><div className="section-title"><div><h2>Minhas matérias</h2><p>{subjects.length} áreas de estudo</p></div></div><div className="subject-grid">{subjects.map(s=>{const stats=weeklySubjectStats(tasks,s);return <article className="subject-card" key={s.id}><div className="subject-top"><div className="subject-icon" style={{background:s.color+'18',color:s.color}}>{s.name.slice(0,2).toUpperCase()}</div><span>{stats.pct}%</span></div><h3>{s.name}</h3><p>{stats.completed} de {stats.goal} sessões nesta semana</p><div className="subject-progress"><i style={{width:stats.pct+'%',background:s.color}}/></div><div className="subject-actions"><button className="edit-item" onClick={()=>setEditing({type:'subject',item:s})} aria-label="Editar matéria"><Pencil size={15}/></button><DeleteButton className="subject-delete" item={'a matéria “'+s.name+'”'} size={15} onConfirm={()=>setSubjects(subjects.filter(x=>x.id!==s.id))}/></div></article>})}</div></section>
+    <section className="subjects phase-page"><div className="section-title"><div><h2>Minhas matérias</h2><p>{subjects.length} áreas de estudo</p></div></div><div className="subject-grid">{subjects.map(s=>{const stats=weeklySubjectStats(tasks,s,sessions);return <article className="subject-card" key={s.id}><div className="subject-top"><div className="subject-icon" style={{background:s.color+'18',color:s.color}}>{s.name.slice(0,2).toUpperCase()}</div><span>{stats.pct}%</span></div><h3>{s.name}</h3><p>{stats.completed} de {stats.goal} sessões nesta semana</p><div className="subject-progress"><i style={{width:stats.pct+'%',background:s.color}}/></div><div className="subject-actions"><button className="edit-item" onClick={()=>setEditing({type:'subject',item:s})} aria-label="Editar matéria"><Pencil size={15}/></button><DeleteButton className="subject-delete" item={'a matéria “'+s.name+'”'} size={15} onConfirm={()=>setSubjects(subjects.filter(x=>x.id!==s.id))}/></div></article>})}</div></section>
     <EditItemModal editing={editing} onClose={()=>setEditing(null)} subjects={subjects} setTasks={setTasks} setSubjects={setSubjects} setExams={setExams}/>
   </>
 
-  const weeklyCompleted=tasks.filter(task=>task.done&&isInCurrentWeek(task.completedAt?.slice(0,10)||task.date)).length
+  const weeklyCompleted=tasks.filter(task=>task.done&&isInCurrentWeek(task.completedAt?.slice(0,10)||task.date)).length+sessions.filter(session=>isInCurrentWeek(session.completedAt?.slice(0,10))).length
   const weeklyGoal=subjects.reduce((sum,subject)=>sum+(Number(subject.goal)||0),0)
   const weeklyPct=weeklyGoal?Math.min(100,Math.round(weeklyCompleted/weeklyGoal*100)):0
   return <>
     <div className="welcome"><div><h1>Metas</h1><p>Metas pequenas e consistentes constroem grandes resultados.</p></div></div>
     <div className="goal-hero"><div><span>PROGRESSO DA SEMANA</span><strong>{weeklyCompleted} de {weeklyGoal} sessões concluídas</strong><p>{weeklyPct>=100?'Meta semanal alcançada!':'Continue no seu ritmo — cada sessão conta.'}</p></div><div className="goal-circle">{weeklyPct}%</div></div>
-    <section className="panel phase-page"><div className="panel-head"><div><h2>Metas por matéria</h2><p>Ajuste quantas sessões deseja concluir por semana.</p></div></div><div className="goal-list">{subjects.map(s=>{const stats=weeklySubjectStats(tasks,s);return <div className="goal-item" key={s.id}><span className="subject-icon" style={{background:s.color+'18',color:s.color}}>{s.name.slice(0,2).toUpperCase()}</span><div><strong>{s.name}</strong><small>{stats.completed} de {stats.goal} concluídas · {stats.pct}%</small><div className="subject-progress"><i style={{width:stats.pct+'%',background:s.color}}/></div></div><div className="stepper"><button aria-label="Diminuir meta" onClick={()=>setSubjects(subjects.map(x=>x.id===s.id?{...x,goal:Math.max(1,x.goal-1)}:x))}>−</button><b>{s.goal}</b><button aria-label="Aumentar meta" onClick={()=>setSubjects(subjects.map(x=>x.id===s.id?{...x,goal:x.goal+1}:x))}>+</button></div></div>})}</div></section>
+    <section className="panel phase-page"><div className="panel-head"><div><h2>Metas por matéria</h2><p>Ajuste quantas sessões deseja concluir por semana.</p></div></div><div className="goal-list">{subjects.map(s=>{const stats=weeklySubjectStats(tasks,s,sessions);return <div className="goal-item" key={s.id}><span className="subject-icon" style={{background:s.color+'18',color:s.color}}>{s.name.slice(0,2).toUpperCase()}</span><div><strong>{s.name}</strong><small>{stats.completed} de {stats.goal} concluídas · {stats.pct}%</small><div className="subject-progress"><i style={{width:stats.pct+'%',background:s.color}}/></div></div><div className="stepper"><button aria-label="Diminuir meta" onClick={()=>setSubjects(subjects.map(x=>x.id===s.id?{...x,goal:Math.max(1,x.goal-1)}:x))}>−</button><b>{s.goal}</b><button aria-label="Aumentar meta" onClick={()=>setSubjects(subjects.map(x=>x.id===s.id?{...x,goal:x.goal+1}:x))}>+</button></div></div>})}</div></section>
     <EditItemModal editing={editing} onClose={()=>setEditing(null)} subjects={subjects} setTasks={setTasks} setSubjects={setSubjects} setExams={setExams}/>
   </>
 }
@@ -213,6 +215,9 @@ function App() {
   const [query, setQuery] = useState('')
   const [active, setActive] = useState('Hoje')
   const [timer, setTimer] = useState(25 * 60)
+  const [focusDuration, setFocusDuration] = useState(25)
+  const [focusSubject, setFocusSubject] = useState('')
+  const [focusMode, setFocusMode] = useState('focus')
   const [running, setRunning] = useState(false)
   const [installPrompt, setInstallPrompt] = useState(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -273,9 +278,28 @@ function App() {
   },[])
 
   useEffect(() => {
+    if(!focusSubject&&subjects.length)setFocusSubject(subjects[0].name)
+  },[subjects,focusSubject])
+
+  useEffect(() => {
     if(!running)return
-    const id=setInterval(()=>setTimer(v=>v>0?v-1:25*60),1000);return()=>clearInterval(id)
+    const id=setInterval(()=>setTimer(value=>Math.max(0,value-1)),1000)
+    return()=>clearInterval(id)
   },[running])
+
+  useEffect(() => {
+    if(!running||timer!==0)return
+    setRunning(false)
+    if(focusMode==='focus'){
+      const session={id:Date.now(),subject:focusSubject||subjects[0]?.name||'Estudos',minutes:focusDuration,completedAt:new Date().toISOString()}
+      setSettings(current=>({...current,focusSessions:[...(current.focusSessions||[]),session].slice(-200)}))
+      if('Notification'in window&&Notification.permission==='granted')navigator.serviceWorker?.ready.then(registration=>registration.showNotification('Sessão concluída ✦',{body:focusDuration+' minutos de '+session.subject+'. Hora de uma pausa!',icon:'/icons/icon-192.png',tag:'focus-complete'}))
+      try{const context=new AudioContext(),oscillator=context.createOscillator(),gain=context.createGain();oscillator.connect(gain);gain.connect(context.destination);oscillator.frequency.value=740;gain.gain.value=.08;oscillator.start();oscillator.stop(context.currentTime+.35)}catch{}
+      setFocusMode('break');setTimer(5*60)
+    }else{
+      setFocusMode('focus');setTimer(focusDuration*60)
+    }
+  },[timer,running,focusMode,focusDuration,focusSubject,subjects,setSettings])
 
   useEffect(() => {
     if(!settings.notifications||!('Notification'in window)||Notification.permission!=='granted')return
@@ -291,7 +315,7 @@ function App() {
   },[settings,tasks,exams])
   const completed = tasks.filter(t => t.done).length
   const progress = tasks.length ? Math.round(completed / tasks.length * 100) : 0
-  const studiedMinutes = tasks.filter(t => t.done).reduce((sum, t) => sum + t.duration, 0)
+  const studiedMinutes = tasks.filter(t => t.done).reduce((sum, t) => sum + t.duration, 0) + (settings.focusSessions||[]).reduce((sum,session)=>sum+session.minutes,0)
   const studiedTime = studiedMinutes >= 60 ? Math.floor(studiedMinutes / 60) + 'h ' + (studiedMinutes % 60) + 'min' : studiedMinutes + ' min'
   const todayLabel = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }).format(new Date()).toUpperCase()
   const filtered = useMemo(() => tasks.filter(t => `${t.title} ${t.subject}`.toLowerCase().includes(query.toLowerCase())), [tasks, query])
@@ -341,7 +365,7 @@ function App() {
       </header>
 
       <section className="content">
-        {active !== 'Hoje' ? <WorkspacePage active={active} tasks={tasks} subjects={subjects} exams={exams} setTasks={setTasks} setSubjects={setSubjects} setExams={setExams} openTask={()=>setModal(true)}/> : <>
+        {active !== 'Hoje' ? <WorkspacePage active={active} tasks={tasks} subjects={subjects} exams={exams} sessions={settings.focusSessions||[]} setTasks={setTasks} setSubjects={setSubjects} setExams={setExams} openTask={()=>setModal(true)}/> : <>
         <div className="welcome"><div><p className="eyebrow">{todayLabel}</p><h1>Olá, {settings.name.split(' ')[0]}! <span>👋</span></h1><p>Você está indo muito bem. Vamos continuar?</p></div><button className="primary" onClick={() => setModal(true)}><Plus size={19}/> Nova tarefa</button></div>
 
         <div className="stats-grid">
@@ -360,11 +384,11 @@ function App() {
             <div className="progress-row"><span>Progresso diário</span><b>{progress}%</b><div className="progress"><i style={{width:`${progress}%`}}/></div></div>
           </section>
 
-          <aside className="focus-card"><div className="focus-top"><span><Timer size={18}/> Modo foco</span><small>Pomodoro</small></div><div className="timer-ring"><div><strong>{mins}:{secs}</strong><span>FOCO</span></div></div><h3>Hora de concentrar</h3><p>Afaste as distrações e avance um pouco.</p><button onClick={() => setRunning(!running)}>{running ? 'Pausar sessão' : 'Iniciar sessão'}</button><button className="reset" onClick={() => {setRunning(false);setTimer(25*60)}}>Reiniciar</button></aside>
+          <aside className="focus-card"><div className="focus-top"><span><Timer size={18}/> {focusMode==='break'?'Pausa curta':'Modo foco'}</span><small>{focusMode==='break'?'5 min':focusDuration+' min'}</small></div>{focusMode==='focus'&&<div className="focus-setup"><select value={focusSubject} onChange={e=>setFocusSubject(e.target.value)} disabled={running} aria-label="Matéria da sessão">{subjects.map(subject=><option key={subject.id}>{subject.name}</option>)}</select><div className="focus-durations">{[25,50].map(minutes=><button type="button" key={minutes} className={focusDuration===minutes?'chosen':''} disabled={running} onClick={()=>{setFocusDuration(minutes);setTimer(minutes*60)}}>{minutes} min</button>)}</div></div>}<div className="timer-ring" style={{background:'conic-gradient(var(--accent) '+Math.round((1-timer/((focusMode==='break'?5:focusDuration)*60))*100)+'%, #ffffff18 0)'}}><div><strong>{mins}:{secs}</strong><span>{focusMode==='break'?'PAUSA':focusSubject||'FOCO'}</span></div></div><h3>{focusMode==='break'?'Respire e recarregue':'Hora de concentrar'}</h3><p>{focusMode==='break'?'Ao terminar, o foco ficará pronto novamente.':'Esta sessão será registrada nas suas metas.'}</p><button onClick={()=>setRunning(!running)}>{running?'Pausar':timer<((focusMode==='break'?5:focusDuration)*60)?'Continuar':'Iniciar sessão'}</button><div className="focus-actions"><button type="button" onClick={()=>{setRunning(false);setFocusMode('break');setTimer(5*60)}}>Pausa 5 min</button><button type="button" onClick={()=>{setRunning(false);setFocusMode('focus');setTimer(focusDuration*60)}}>Reiniciar</button></div></aside>
         </div>
 
         <section className="subjects"><div className="section-title"><div><h2>Suas matérias</h2><p>Acompanhe o ritmo de cada área</p></div><button>Ver todas <ChevronRight size={17}/></button></div>
-          <div className="subject-grid">{subjects.map(s=>{const stats=weeklySubjectStats(tasks,s);return <article key={s.id} className="subject-card"><div className="subject-top"><div className="subject-icon" style={{background:s.color+'18',color:s.color}}>{s.name.slice(0,2).toUpperCase()}</div><span>{stats.pct}%</span></div><h3>{s.name}</h3><p>{stats.completed} de {stats.goal} sessões nesta semana</p><div className="subject-progress"><i style={{width:stats.pct+'%',background:s.color}}/></div></article>})}</div>
+          <div className="subject-grid">{subjects.map(s=>{const stats=weeklySubjectStats(tasks,s,settings.focusSessions||[]);return <article key={s.id} className="subject-card"><div className="subject-top"><div className="subject-icon" style={{background:s.color+'18',color:s.color}}>{s.name.slice(0,2).toUpperCase()}</div><span>{stats.pct}%</span></div><h3>{s.name}</h3><p>{stats.completed} de {stats.goal} sessões nesta semana</p><div className="subject-progress"><i style={{width:stats.pct+'%',background:s.color}}/></div></article>})}</div>
         </section>
         </>}
       </section>
