@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BookOpen, CalendarDays, Check, ChevronRight, Clock3, Flame, LayoutDashboard, ListTodo, Menu, Plus, Search, Settings, Sparkles, Target, Timer, Trash2, X } from 'lucide-react'
+import { BookOpen, CalendarDays, Check, ChevronRight, Clock3, Download, Flame, LayoutDashboard, ListTodo, Menu, Plus, Search, Settings, Sparkles, Target, Timer, Trash2, X } from 'lucide-react'
 import './styles.css'
 
 const initialSubjects = [
@@ -74,7 +74,13 @@ function App() {
   const [active, setActive] = useState('Hoje')
   const [timer, setTimer] = useState(25 * 60)
   const [running, setRunning] = useState(false)
+  const [installPrompt, setInstallPrompt] = useState(null)
 
+  useEffect(() => {
+    const captureInstall = event => { event.preventDefault(); setInstallPrompt(event) }
+    window.addEventListener('beforeinstallprompt', captureInstall)
+    return () => window.removeEventListener('beforeinstallprompt', captureInstall)
+  }, [])
   useEffect(() => {
     if (!running) return
     const id = setInterval(() => setTimer(v => v > 0 ? v - 1 : 25 * 60), 1000)
@@ -107,6 +113,7 @@ function App() {
           <button key={label} className={active === label ? 'active' : ''} onClick={() => {setActive(label); setMobileNav(false)}}><Icon size={19}/>{label}</button>)}
       </nav>
       <div className="upgrade-card simple"><div className="mini-stars">✦</div><strong>Um passo por vez.</strong><p>Veja o que importa hoje e avance no seu ritmo.</p></div>
+      {installPrompt && <button className="settings install-app" onClick={async()=>{await installPrompt.prompt();setInstallPrompt(null)}}><Download size={18}/> Instalar aplicativo</button>}
       <button className="settings"><Settings size={18}/> Configurações</button>
     </aside>
 
@@ -158,3 +165,7 @@ function App() {
 }
 
 createRoot(document.getElementById('root')).render(<App />)
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('/service-worker.js'))
+}
