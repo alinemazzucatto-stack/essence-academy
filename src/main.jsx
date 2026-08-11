@@ -1,0 +1,150 @@
+import React, { useEffect, useMemo, useState } from 'react'
+import { createRoot } from 'react-dom/client'
+import { BookOpen, CalendarDays, Check, ChevronRight, Clock3, Flame, LayoutDashboard, ListTodo, Menu, Plus, Search, Settings, Sparkles, Target, Timer, Trash2, X } from 'lucide-react'
+import './styles.css'
+
+const initialSubjects = [
+  { id: 1, name: 'Matemática', color: '#7c6ee6', goal: 5 },
+  { id: 2, name: 'Biologia', color: '#3ebd93', goal: 4 },
+  { id: 3, name: 'História', color: '#f3a85f', goal: 3 },
+  { id: 4, name: 'Redação', color: '#ea7186', goal: 2 },
+]
+
+const initialTasks = [
+  { id: 1, title: 'Revisar funções do 2º grau', subject: 'Matemática', date: 'Hoje', duration: 45, done: false },
+  { id: 2, title: 'Resumo: genética mendeliana', subject: 'Biologia', date: 'Hoje', duration: 30, done: true },
+  { id: 3, title: 'Exercícios de Brasil Colônia', subject: 'História', date: 'Hoje', duration: 40, done: false },
+  { id: 4, title: 'Escrever introdução modelo', subject: 'Redação', date: 'Amanhã', duration: 35, done: false },
+]
+
+function useStoredState(key, fallback) {
+  const [value, setValue] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(key)) ?? fallback } catch { return fallback }
+  })
+  useEffect(() => localStorage.setItem(key, JSON.stringify(value)), [key, value])
+  return [value, setValue]
+}
+
+
+function WorkspacePage({ active, tasks, subjects, setTasks, setSubjects, openTask }) {
+  const toggle = id => setTasks(tasks.map(t => t.id === id ? {...t, done: !t.done} : t))
+  const remove = id => setTasks(tasks.filter(t => t.id !== id))
+  const [filter, setFilter] = useState('Todas')
+  const [subjectName, setSubjectName] = useState('')
+  const shown = tasks.filter(t => filter === 'Todas' || (filter === 'Concluídas' ? t.done : !t.done))
+  const days = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom']
+  const month = [27,28,29,30,31,...Array.from({length:31},(_,i)=>i+1),1,2,3,4,5,6]
+
+  if (active === 'Planejamento') return <>
+    <div className="welcome"><div><h1>Planejamento</h1><p>Organize o que precisa ser feito, sem sobrecarregar seu dia.</p></div><button className="primary" onClick={openTask}><Plus size={19}/> Nova tarefa</button></div>
+    <div className="filter-tabs">{['Todas','Pendentes','Concluídas'].map(f=><button key={f} className={filter===f?'selected':''} onClick={()=>setFilter(f)}>{f}</button>)}</div>
+    <section className="panel phase-page"><div className="panel-head"><div><h2>{filter}</h2><p>{shown.length} tarefas encontradas</p></div></div><div className="task-list">{shown.map(task=><div className={`task ${task.done?'done':''}`} key={task.id}><button className="check" onClick={()=>toggle(task.id)}>{task.done&&<Check size={14}/>}</button><div className="task-body"><strong>{task.title}</strong><div><span className="dot" style={{background:subjects.find(s=>s.name===task.subject)?.color}}/>{task.subject}<span>•</span><Clock3 size={13}/>{task.duration} min</div></div><span className="date">{task.date}</span><button className="delete" onClick={()=>remove(task.id)}><Trash2 size={17}/></button></div>)}</div></section>
+  </>
+
+  if (active === 'Calendário') return <>
+    <div className="welcome"><div><h1>Calendário</h1><p>Visualize sua rotina e distribua melhor seus estudos.</p></div></div>
+    <section className="panel calendar-panel"><div className="calendar-title"><button><ChevronRight size={18} className="flip"/></button><h2>Agosto de 2026</h2><button><ChevronRight size={18}/></button></div><div className="calendar-grid">{days.map(d=><b key={d}>{d}</b>)}{month.map((d,i)=><div key={i} className={`${i<5||i>35?'muted-day':''} ${d===11&&i>4&&i<36?'today':''}`}><span>{d}</span>{i>4&&i<36&&[3,7,11,14,18,22,26].includes(d)&&<i style={{background:subjects[d%subjects.length]?.color}}/>}</div>)}</div></section>
+  </>
+
+  if (active === 'Matérias') return <>
+    <div className="welcome"><div><h1>Matérias</h1><p>Centralize todas as áreas da sua jornada.</p></div></div>
+    <form className="quick-add" onSubmit={e=>{e.preventDefault();if(!subjectName.trim())return;setSubjects([...subjects,{id:Date.now(),name:subjectName,color:['#4b9bea','#a868d8','#3ebd93'][subjects.length%3],goal:3}]);setSubjectName('')}}><input value={subjectName} onChange={e=>setSubjectName(e.target.value)} placeholder="Nome da nova matéria"/><button className="primary"><Plus size={18}/> Adicionar</button></form>
+    <section className="subjects phase-page"><div className="section-title"><div><h2>Minhas matérias</h2><p>{subjects.length} áreas de estudo</p></div></div><div className="subject-grid">{subjects.map((s,i)=><article className="subject-card" key={s.id}><div className="subject-top"><div className="subject-icon" style={{background:`${s.color}18`,color:s.color}}>{s.name.slice(0,2).toUpperCase()}</div><span>{[72,58,44,81,35,60][i]||50}%</span></div><h3>{s.name}</h3><p>Meta de {s.goal} sessões por semana</p><div className="subject-progress"><i style={{width:`${[72,58,44,81,35,60][i]||50}%`,background:s.color}}/></div><button className="subject-delete" onClick={()=>setSubjects(subjects.filter(x=>x.id!==s.id))}><Trash2 size={15}/></button></article>)}</div></section>
+  </>
+
+  return <>
+    <div className="welcome"><div><h1>Metas</h1><p>Metas pequenas e consistentes constroem grandes resultados.</p></div></div>
+    <div className="goal-hero"><div><span>PROGRESSO DA SEMANA</span><strong>{tasks.filter(t=>t.done).length} tarefas concluídas</strong><p>Continue assim — cada sessão conta.</p></div><div className="goal-circle">{tasks.length?Math.round(tasks.filter(t=>t.done).length/tasks.length*100):0}%</div></div>
+    <section className="panel phase-page"><div className="panel-head"><div><h2>Metas por matéria</h2><p>Ajuste quantas sessões deseja concluir.</p></div></div><div className="goal-list">{subjects.map(s=><div className="goal-item" key={s.id}><span className="subject-icon" style={{background:`${s.color}18`,color:s.color}}>{s.name.slice(0,2).toUpperCase()}</span><div><strong>{s.name}</strong><small>Meta semanal</small></div><div className="stepper"><button onClick={()=>setSubjects(subjects.map(x=>x.id===s.id?{...x,goal:Math.max(1,x.goal-1)}:x))}>−</button><b>{s.goal}</b><button onClick={()=>setSubjects(subjects.map(x=>x.id===s.id?{...x,goal:x.goal+1}:x))}>+</button></div></div>)}</div></section>
+  </>
+}
+function App() {
+  const [tasks, setTasks] = useStoredState('essence-tasks', initialTasks)
+  const [subjects, setSubjects] = useStoredState('essence-subjects', initialSubjects)
+  const [modal, setModal] = useState(false)
+  const [mobileNav, setMobileNav] = useState(false)
+  const [query, setQuery] = useState('')
+  const [active, setActive] = useState('Hoje')
+  const [timer, setTimer] = useState(25 * 60)
+  const [running, setRunning] = useState(false)
+
+  useEffect(() => {
+    if (!running) return
+    const id = setInterval(() => setTimer(v => v > 0 ? v - 1 : 25 * 60), 1000)
+    return () => clearInterval(id)
+  }, [running])
+
+  const completed = tasks.filter(t => t.done).length
+  const progress = tasks.length ? Math.round(completed / tasks.length * 100) : 0
+  const filtered = useMemo(() => tasks.filter(t => `${t.title} ${t.subject}`.toLowerCase().includes(query.toLowerCase())), [tasks, query])
+
+  function addTask(e) {
+    e.preventDefault()
+    const data = new FormData(e.currentTarget)
+    setTasks(v => [{ id: Date.now(), title: data.get('title'), subject: data.get('subject'), date: data.get('date'), duration: Number(data.get('duration')), done: false }, ...v])
+    setModal(false)
+  }
+
+  const mins = String(Math.floor(timer / 60)).padStart(2, '0')
+  const secs = String(timer % 60).padStart(2, '0')
+
+  return <div className="app-shell">
+    <aside className={`sidebar ${mobileNav ? 'open' : ''}`}>
+      <div className="brand"><div className="brand-mark"><Sparkles size={20}/></div><span>Essence<span>Academy</span></span></div>
+      <button className="close-nav" onClick={() => setMobileNav(false)}><X/></button>
+      <nav>
+        {[[LayoutDashboard,'Hoje'],[ListTodo,'Planejamento'],[BookOpen,'Matérias']].map(([Icon,label]) =>
+          <button key={label} className={active === label ? 'active' : ''} onClick={() => {setActive(label); setMobileNav(false)}}><Icon size={19}/>{label}</button>)}
+      </nav>
+      <div className="upgrade-card simple"><div className="mini-stars">✦</div><strong>Um passo por vez.</strong><p>Veja o que importa hoje e avance no seu ritmo.</p></div>
+      <button className="settings"><Settings size={18}/> Configurações</button>
+    </aside>
+
+    <main>
+      <header>
+        <button className="menu-button" onClick={() => setMobileNav(true)}><Menu/></button>
+        <div className="search"><Search size={18}/><input placeholder="Buscar tarefa ou matéria..." value={query} onChange={e => setQuery(e.target.value)}/></div>
+        <div className="streak"><Flame size={18}/> <b>7</b> dias</div>
+        <div className="avatar">AS</div>
+      </header>
+
+      <section className="content">
+        {active !== 'Hoje' ? <WorkspacePage active={active} tasks={tasks} subjects={subjects} setTasks={setTasks} setSubjects={setSubjects} openTask={()=>setModal(true)}/> : <>
+        <div className="welcome"><div><p className="eyebrow">TERÇA-FEIRA, 11 DE AGOSTO</p><h1>Olá, Aline! <span>👋</span></h1><p>Você está indo muito bem. Vamos continuar?</p></div><button className="primary" onClick={() => setModal(true)}><Plus size={19}/> Nova tarefa</button></div>
+
+        <div className="stats-grid">
+          <article className="stat"><div className="stat-icon purple"><Clock3/></div><div><span>Tempo estudado</span><strong>2h 35min</strong><small><b>+18%</b> esta semana</small></div></article>
+          <article className="stat"><div className="stat-icon green"><Check/></div><div><span>Tarefas concluídas</span><strong>{completed} de {tasks.length}</strong><small>{progress}% do planejado</small></div></article>
+          <article className="stat"><div className="stat-icon orange"><Flame/></div><div><span>Sequência atual</span><strong>7 dias</strong><small>Seu recorde: 12 dias</small></div></article>
+        </div>
+
+        <div className="dashboard-grid">
+          <section className="panel tasks-panel"><div className="panel-head"><div><h2>Plano de hoje</h2><p>Uma coisa de cada vez.</p></div><button onClick={() => setModal(true)}>Adicionar <Plus size={17}/></button></div>
+            <div className="task-list">{filtered.length ? filtered.map(task => <div className={`task ${task.done ? 'done' : ''}`} key={task.id}>
+              <button className="check" onClick={() => setTasks(tasks.map(t => t.id === task.id ? {...t,done:!t.done} : t))}>{task.done && <Check size={14}/>}</button>
+              <div className="task-body"><strong>{task.title}</strong><div><span className="dot" style={{background: subjects.find(s=>s.name===task.subject)?.color}}></span>{task.subject}<span>•</span><Clock3 size={13}/>{task.duration} min</div></div>
+              <span className="date">{task.date}</span><button className="delete" onClick={() => setTasks(tasks.filter(t=>t.id!==task.id))}><Trash2 size={17}/></button>
+            </div>) : <div className="empty">Nenhuma tarefa encontrada.</div>}</div>
+            <div className="progress-row"><span>Progresso diário</span><b>{progress}%</b><div className="progress"><i style={{width:`${progress}%`}}/></div></div>
+          </section>
+
+          <aside className="focus-card"><div className="focus-top"><span><Timer size={18}/> Modo foco</span><small>Pomodoro</small></div><div className="timer-ring"><div><strong>{mins}:{secs}</strong><span>FOCO</span></div></div><h3>Hora de concentrar</h3><p>Afaste as distrações e avance um pouco.</p><button onClick={() => setRunning(!running)}>{running ? 'Pausar sessão' : 'Iniciar sessão'}</button><button className="reset" onClick={() => {setRunning(false);setTimer(25*60)}}>Reiniciar</button></aside>
+        </div>
+
+        <section className="subjects"><div className="section-title"><div><h2>Suas matérias</h2><p>Acompanhe o ritmo de cada área</p></div><button>Ver todas <ChevronRight size={17}/></button></div>
+          <div className="subject-grid">{subjects.map((s,i) => <article key={s.id} className="subject-card"><div className="subject-top"><div className="subject-icon" style={{background:`${s.color}18`,color:s.color}}>{s.name.slice(0,2).toUpperCase()}</div><span>{[72,58,44,81][i] || 50}%</span></div><h3>{s.name}</h3><p>{[4,3,2,5][i] || 2} sessões esta semana</p><div className="subject-progress"><i style={{width:`${[72,58,44,81][i] || 50}%`,background:s.color}}/></div></article>)}</div>
+        </section>
+        </>}
+      </section>
+    </main>
+
+    {modal && <div className="modal-backdrop" onMouseDown={() => setModal(false)}><div className="modal" onMouseDown={e=>e.stopPropagation()}><div className="modal-head"><div><h2>Nova tarefa</h2><p>Planeje seu próximo passo.</p></div><button onClick={()=>setModal(false)}><X/></button></div><form onSubmit={addTask}>
+      <label>Tarefa<input required name="title" placeholder="Ex: Revisar capítulo 4" autoFocus/></label>
+      <label>Matéria<select name="subject">{subjects.map(s=><option key={s.id}>{s.name}</option>)}</select></label>
+      <div className="form-row"><label>Quando<select name="date"><option>Hoje</option><option>Amanhã</option><option>Esta semana</option></select></label><label>Duração<input required name="duration" type="number" min="5" step="5" defaultValue="30"/></label></div>
+      <button className="primary submit" type="submit">Adicionar tarefa</button>
+    </form></div></div>}
+  </div>
+}
+
+createRoot(document.getElementById('root')).render(<App />)

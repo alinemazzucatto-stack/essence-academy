@@ -1,0 +1,9 @@
+{
+  "name": "Essence Academy",
+  "short_name": "Essence",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f5fb",
+  "theme_color": "#6c5ce7",
+  "description": "Sua rotina de estudos em um só lugar."
+}
