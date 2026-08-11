@@ -26,17 +26,23 @@ function useStoredState(key, fallback) {
 }
 
 
-function WorkspacePage({ active, tasks, subjects, setTasks, setSubjects, openTask }) {
+function WorkspacePage({ active, tasks, subjects, exams, setTasks, setSubjects, setExams, openTask }) {
   const toggle = id => setTasks(tasks.map(t => t.id === id ? {...t, done: !t.done} : t))
   const remove = id => setTasks(tasks.filter(t => t.id !== id))
   const [filter, setFilter] = useState('Todas')
   const [subjectName, setSubjectName] = useState('')
+  const [showExam, setShowExam] = useState(false)
   const shown = tasks.filter(t => filter === 'Todas' || (filter === 'Concluídas' ? t.done : !t.done))
   const days = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom']
   const month = [27,28,29,30,31,...Array.from({length:31},(_,i)=>i+1),1,2,3,4,5,6]
 
   if (active === 'Planejamento') return <>
     <div className="welcome"><div><h1>Planejamento</h1><p>Organize o que precisa ser feito, sem sobrecarregar seu dia.</p></div><button className="primary" onClick={openTask}><Plus size={19}/> Nova tarefa</button></div>
+    <section className="exam-section">
+      <div className="exam-head"><div><h2>Próximas provas</h2><p>Datas importantes em um só lugar.</p></div><button onClick={()=>setShowExam(!showExam)}><Plus size={17}/> Adicionar prova</button></div>
+      {showExam && <form className="exam-form" onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);setExams([...exams,{id:Date.now(),title:f.get('title'),subject:f.get('subject'),date:f.get('date')}]);setShowExam(false)}}><input name="title" required placeholder="Nome da prova" autoFocus/><select name="subject">{subjects.map(s=><option key={s.id}>{s.name}</option>)}</select><input name="date" type="date" required/><button className="primary">Salvar</button></form>}
+      <div className="exam-list">{exams.length ? [...exams].sort((a,b)=>a.date.localeCompare(b.date)).map(exam=><article className="exam-card" key={exam.id}><div className="exam-date"><strong>{new Date(exam.date+'T12:00:00').getDate()}</strong><span>{new Date(exam.date+'T12:00:00').toLocaleDateString('pt-BR',{month:'short'}).replace('.','')}</span></div><div><strong>{exam.title}</strong><p><span className="dot" style={{background:subjects.find(s=>s.name===exam.subject)?.color}}/>{exam.subject}</p></div><button onClick={()=>setExams(exams.filter(x=>x.id!==exam.id))}><Trash2 size={16}/></button></article>) : <p className="exam-empty">Nenhuma prova cadastrada.</p>}</div>
+    </section>
     <div className="filter-tabs">{['Todas','Pendentes','Concluídas'].map(f=><button key={f} className={filter===f?'selected':''} onClick={()=>setFilter(f)}>{f}</button>)}</div>
     <section className="panel phase-page"><div className="panel-head"><div><h2>{filter}</h2><p>{shown.length} tarefas encontradas</p></div></div><div className="task-list">{shown.map(task=><div className={`task ${task.done?'done':''}`} key={task.id}><button className="check" onClick={()=>toggle(task.id)}>{task.done&&<Check size={14}/>}</button><div className="task-body"><strong>{task.title}</strong><div><span className="dot" style={{background:subjects.find(s=>s.name===task.subject)?.color}}/>{task.subject}<span>•</span><Clock3 size={13}/>{task.duration} min</div></div><span className="date">{task.date}</span><button className="delete" onClick={()=>remove(task.id)}><Trash2 size={17}/></button></div>)}</div></section>
   </>
@@ -60,6 +66,7 @@ function WorkspacePage({ active, tasks, subjects, setTasks, setSubjects, openTas
 }
 function App() {
   const [tasks, setTasks] = useStoredState('essence-tasks', initialTasks)
+  const [exams, setExams] = useStoredState('essence-exams', [])
   const [subjects, setSubjects] = useStoredState('essence-subjects', initialSubjects)
   const [modal, setModal] = useState(false)
   const [mobileNav, setMobileNav] = useState(false)
@@ -76,6 +83,9 @@ function App() {
 
   const completed = tasks.filter(t => t.done).length
   const progress = tasks.length ? Math.round(completed / tasks.length * 100) : 0
+  const studiedMinutes = tasks.filter(t => t.done).reduce((sum, t) => sum + t.duration, 0)
+  const studiedTime = studiedMinutes >= 60 ? Math.floor(studiedMinutes / 60) + 'h ' + (studiedMinutes % 60) + 'min' : studiedMinutes + ' min'
+  const todayLabel = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }).format(new Date()).toUpperCase()
   const filtered = useMemo(() => tasks.filter(t => `${t.title} ${t.subject}`.toLowerCase().includes(query.toLowerCase())), [tasks, query])
 
   function addTask(e) {
@@ -104,18 +114,18 @@ function App() {
       <header>
         <button className="menu-button" onClick={() => setMobileNav(true)}><Menu/></button>
         <div className="search"><Search size={18}/><input placeholder="Buscar tarefa ou matéria..." value={query} onChange={e => setQuery(e.target.value)}/></div>
-        <div className="streak"><Flame size={18}/> <b>7</b> dias</div>
+        <div className="streak"><Check size={18}/> <b>{progress}%</b> concluído</div>
         <div className="avatar">AS</div>
       </header>
 
       <section className="content">
-        {active !== 'Hoje' ? <WorkspacePage active={active} tasks={tasks} subjects={subjects} setTasks={setTasks} setSubjects={setSubjects} openTask={()=>setModal(true)}/> : <>
-        <div className="welcome"><div><p className="eyebrow">TERÇA-FEIRA, 11 DE AGOSTO</p><h1>Olá, Aline! <span>👋</span></h1><p>Você está indo muito bem. Vamos continuar?</p></div><button className="primary" onClick={() => setModal(true)}><Plus size={19}/> Nova tarefa</button></div>
+        {active !== 'Hoje' ? <WorkspacePage active={active} tasks={tasks} subjects={subjects} exams={exams} setTasks={setTasks} setSubjects={setSubjects} setExams={setExams} openTask={()=>setModal(true)}/> : <>
+        <div className="welcome"><div><p className="eyebrow">{todayLabel}</p><h1>Olá, Aline! <span>👋</span></h1><p>Você está indo muito bem. Vamos continuar?</p></div><button className="primary" onClick={() => setModal(true)}><Plus size={19}/> Nova tarefa</button></div>
 
         <div className="stats-grid">
-          <article className="stat"><div className="stat-icon purple"><Clock3/></div><div><span>Tempo estudado</span><strong>2h 35min</strong><small><b>+18%</b> esta semana</small></div></article>
+          <article className="stat"><div className="stat-icon purple"><Clock3/></div><div><span>Tempo concluído</span><strong>{studiedTime}</strong><small>Soma das tarefas finalizadas</small></div></article>
           <article className="stat"><div className="stat-icon green"><Check/></div><div><span>Tarefas concluídas</span><strong>{completed} de {tasks.length}</strong><small>{progress}% do planejado</small></div></article>
-          <article className="stat"><div className="stat-icon orange"><Flame/></div><div><span>Sequência atual</span><strong>7 dias</strong><small>Seu recorde: 12 dias</small></div></article>
+          <article className="stat"><div className="stat-icon orange"><ListTodo/></div><div><span>Tarefas pendentes</span><strong>{tasks.length - completed}</strong><small>{tasks.length - completed === 0 ? 'Tudo em dia' : 'Continue no seu ritmo'}</small></div></article>
         </div>
 
         <div className="dashboard-grid">
@@ -132,7 +142,7 @@ function App() {
         </div>
 
         <section className="subjects"><div className="section-title"><div><h2>Suas matérias</h2><p>Acompanhe o ritmo de cada área</p></div><button>Ver todas <ChevronRight size={17}/></button></div>
-          <div className="subject-grid">{subjects.map((s,i) => <article key={s.id} className="subject-card"><div className="subject-top"><div className="subject-icon" style={{background:`${s.color}18`,color:s.color}}>{s.name.slice(0,2).toUpperCase()}</div><span>{[72,58,44,81][i] || 50}%</span></div><h3>{s.name}</h3><p>{[4,3,2,5][i] || 2} sessões esta semana</p><div className="subject-progress"><i style={{width:`${[72,58,44,81][i] || 50}%`,background:s.color}}/></div></article>)}</div>
+          <div className="subject-grid">{subjects.map(s => { const related = tasks.filter(t => t.subject === s.name); const done = related.filter(t => t.done).length; const pct = related.length ? Math.round(done / related.length * 100) : 0; return <article key={s.id} className="subject-card"><div className="subject-top"><div className="subject-icon" style={{background:`${s.color}18`,color:s.color}}>{s.name.slice(0,2).toUpperCase()}</div><span>{pct}%</span></div><h3>{s.name}</h3><p>{done} de {related.length} tarefas concluídas</p><div className="subject-progress"><i style={{width:`${pct}%`,background:s.color}}/></div></article> })}</div>
         </section>
         </>}
       </section>
