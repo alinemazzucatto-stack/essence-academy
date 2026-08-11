@@ -18,6 +18,26 @@ const initialTasks = [
   { id: 4, title: 'Escrever introdução modelo', subject: 'Redação', date: 'Amanhã', duration: 35, done: false },
 ]
 
+function localIso(date=new Date()) {
+  const year=date.getFullYear(),month=String(date.getMonth()+1).padStart(2,'0'),day=String(date.getDate()).padStart(2,'0')
+  return year+'-'+month+'-'+day
+}
+function taskDateIso(value) {
+  if(/^\d{4}-\d{2}-\d{2}$/.test(value||''))return value
+  const date=new Date()
+  if(value==='Amanhã')date.setDate(date.getDate()+1)
+  if(value==='Esta semana')return ''
+  return localIso(date)
+}
+function taskDateLabel(value) {
+  const iso=taskDateIso(value)
+  if(!iso)return value||'Sem data'
+  const today=localIso(),tomorrow=new Date();tomorrow.setDate(tomorrow.getDate()+1)
+  if(iso===today)return 'Hoje'
+  if(iso===localIso(tomorrow))return 'Amanhã'
+  return new Date(iso+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}).replace('.','')
+}
+
 function useStoredState(key, fallback) {
   const [value, setValue] = useState(() => {
     try { return JSON.parse(localStorage.getItem(key)) ?? fallback } catch { return fallback }
@@ -104,7 +124,7 @@ function EditItemModal({ editing, onClose, subjects, setTasks, setSubjects, setE
     onClose()
   }
   return <div className="modal-backdrop" onMouseDown={onClose}><div className="modal edit-modal" role="dialog" aria-modal="true" onMouseDown={e=>e.stopPropagation()}><div className="modal-head"><div><h2>Editar {type==='task'?'tarefa':type==='exam'?'prova':'matéria'}</h2><p>Atualize somente o que precisar.</p></div><button onClick={onClose}><X/></button></div><form onSubmit={save}>
-    {type==='task'&&<><label>Tarefa<input name="title" required defaultValue={item.title} autoFocus/></label><label>Matéria<select name="subject" defaultValue={item.subject}>{subjects.map(s=><option key={s.id}>{s.name}</option>)}</select></label><div className="form-row"><label>Quando<select name="date" defaultValue={item.date}><option>Hoje</option><option>Amanhã</option><option>Esta semana</option></select></label><label>Duração<input name="duration" type="number" min="5" step="5" required defaultValue={item.duration}/></label></div></>}
+    {type==='task'&&<><label>Tarefa<input name="title" required defaultValue={item.title} autoFocus/></label><label>Matéria<select name="subject" defaultValue={item.subject}>{subjects.map(s=><option key={s.id}>{s.name}</option>)}</select></label><div className="form-row"><label>Data<input name="date" type="date" required defaultValue={taskDateIso(item.date)}/></label><label>Duração<input name="duration" type="number" min="5" step="5" required defaultValue={item.duration}/></label></div></>}
     {type==='exam'&&<><label>Nome da prova<input name="title" required defaultValue={item.title} autoFocus/></label><label>Matéria<select name="subject" defaultValue={item.subject}>{subjects.map(s=><option key={s.id}>{s.name}</option>)}</select></label><label>Professor(a) — opcional<input name="professor" defaultValue={item.professor||''}/></label><label>Data<input name="date" type="date" required defaultValue={item.date}/></label></>}
     {type==='subject'&&<><label>Nome da matéria<input name="name" required defaultValue={item.name} autoFocus/></label><div className="form-row"><label>Cor<input name="color" type="color" defaultValue={item.color}/></label><label>Meta semanal<input name="goal" type="number" min="1" max="30" required defaultValue={item.goal}/></label></div></>}
     <button className="primary submit">Salvar alterações</button>
@@ -116,8 +136,21 @@ function WorkspacePage({ active, tasks, subjects, exams, setTasks, setSubjects, 
   const [filter, setFilter] = useState('Todas')
   const [subjectName, setSubjectName] = useState('')
   const [showExam, setShowExam] = useState(false)
+  const [calendarMonth, setCalendarMonth] = useState(()=>new Date(new Date().getFullYear(),new Date().getMonth(),1))
+  const [selectedDay, setSelectedDay] = useState(localIso())
   const [editing, setEditing] = useState(null)
   const shown = tasks.filter(t => filter === 'Todas' || (filter === 'Concluídas' ? t.done : !t.done))
+  const calendarYear=calendarMonth.getFullYear(),calendarMonthIndex=calendarMonth.getMonth()
+  const calendarOffset=(new Date(calendarYear,calendarMonthIndex,1).getDay()+6)%7
+  const calendarDaysCount=new Date(calendarYear,calendarMonthIndex+1,0).getDate()
+  const previousDaysCount=new Date(calendarYear,calendarMonthIndex,0).getDate()
+  const calendarCells=Array.from({length:42},(_,index)=>{
+    const dayNumber=index-calendarOffset+1
+    const date=dayNumber<1?new Date(calendarYear,calendarMonthIndex-1,previousDaysCount+dayNumber):dayNumber>calendarDaysCount?new Date(calendarYear,calendarMonthIndex+1,dayNumber-calendarDaysCount):new Date(calendarYear,calendarMonthIndex,dayNumber)
+    return {date,iso:localIso(date),outside:date.getMonth()!==calendarMonthIndex}
+  })
+  const selectedTasks=tasks.filter(task=>taskDateIso(task.date)===selectedDay)
+  const selectedExams=exams.filter(exam=>exam.date===selectedDay)
   const days = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom']
   const month = [27,28,29,30,31,...Array.from({length:31},(_,i)=>i+1),1,2,3,4,5,6]
 
@@ -129,16 +162,16 @@ function WorkspacePage({ active, tasks, subjects, exams, setTasks, setSubjects, 
       <div className="exam-list">{exams.length ? [...exams].sort((a,b)=>a.date.localeCompare(b.date)).map(exam=><article className="exam-card" key={exam.id}><div className="exam-date"><strong>{new Date(exam.date+'T12:00:00').getDate()}</strong><span>{new Date(exam.date+'T12:00:00').toLocaleDateString('pt-BR',{month:'short'}).replace('.','')}</span></div><div><strong>{exam.title}</strong><p><span className="dot" style={{background:subjects.find(s=>s.name===exam.subject)?.color}}/>{exam.subject}{exam.professor && <> • Prof. {exam.professor}</>}</p></div><div className="item-actions"><button className="edit-item" onClick={()=>setEditing({type:'exam',item:exam})} aria-label="Editar prova"><Pencil size={15}/></button><DeleteButton item={`a prova “${exam.title}”`} size={16} onConfirm={()=>setExams(exams.filter(x=>x.id!==exam.id))}/></div></article>) : <p className="exam-empty">Nenhuma prova cadastrada.</p>}</div>
     </section>
     <div className="filter-tabs">{['Todas','Pendentes','Concluídas'].map(f=><button key={f} className={filter===f?'selected':''} onClick={()=>setFilter(f)}>{f}</button>)}</div>
-    <section className="panel phase-page"><div className="panel-head"><div><h2>{filter}</h2><p>{shown.length} tarefas encontradas</p></div></div><div className="task-list">{shown.map(task=><div className={`task ${task.done?'done':''}`} key={task.id}><button className="check" onClick={()=>toggle(task.id)}>{task.done&&<Check size={14}/>}</button><div className="task-body"><strong>{task.title}</strong><div><span className="dot" style={{background:subjects.find(s=>s.name===task.subject)?.color}}/>{task.subject}<span>•</span><Clock3 size={13}/>{task.duration} min</div></div><span className="date">{task.date}</span><div className="item-actions"><button className="edit-item" onClick={()=>setEditing({type:'task',item:task})} aria-label="Editar tarefa"><Pencil size={16}/></button><DeleteButton className="delete" item={`a tarefa “${task.title}”`} onConfirm={()=>remove(task.id)}/></div></div>)}</div></section>
+    <section className="panel phase-page"><div className="panel-head"><div><h2>{filter}</h2><p>{shown.length} tarefas encontradas</p></div></div><div className="task-list">{shown.map(task=><div className={`task ${task.done?'done':''}`} key={task.id}><button className="check" onClick={()=>toggle(task.id)}>{task.done&&<Check size={14}/>}</button><div className="task-body"><strong>{task.title}</strong><div><span className="dot" style={{background:subjects.find(s=>s.name===task.subject)?.color}}/>{task.subject}<span>•</span><Clock3 size={13}/>{task.duration} min</div></div><span className="date">{taskDateLabel(task.date)}</span><div className="item-actions"><button className="edit-item" onClick={()=>setEditing({type:'task',item:task})} aria-label="Editar tarefa"><Pencil size={16}/></button><DeleteButton className="delete" item={`a tarefa “${task.title}”`} onConfirm={()=>remove(task.id)}/></div></div>)}</div></section>
     <EditItemModal editing={editing} onClose={()=>setEditing(null)} subjects={subjects} setTasks={setTasks} setSubjects={setSubjects} setExams={setExams}/>
   </>
 
   if (active === 'Calendário') return <>
-    <div className="welcome"><div><h1>Calendário</h1><p>Visualize sua rotina e distribua melhor seus estudos.</p></div></div>
-    <section className="panel calendar-panel"><div className="calendar-title"><button><ChevronRight size={18} className="flip"/></button><h2>Agosto de 2026</h2><button><ChevronRight size={18}/></button></div><div className="calendar-grid">{days.map(d=><b key={d}>{d}</b>)}{month.map((d,i)=><div key={i} className={`${i<5||i>35?'muted-day':''} ${d===11&&i>4&&i<36?'today':''}`}><span>{d}</span>{i>4&&i<36&&[3,7,11,14,18,22,26].includes(d)&&<i style={{background:subjects[d%subjects.length]?.color}}/>}</div>)}</div></section>
+    <div className="welcome"><div><h1>Calendário</h1><p>Veja tarefas e provas nas datas certas.</p></div></div>
+    <section className="panel calendar-panel"><div className="calendar-title"><button onClick={()=>setCalendarMonth(new Date(calendarYear,calendarMonthIndex-1,1))} aria-label="Mês anterior"><ChevronRight size={18} className="flip"/></button><h2>{calendarMonth.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</h2><button onClick={()=>setCalendarMonth(new Date(calendarYear,calendarMonthIndex+1,1))} aria-label="Próximo mês"><ChevronRight size={18}/></button></div><div className="calendar-grid">{days.map(d=><b key={d}>{d}</b>)}{calendarCells.map(cell=>{const dayTasks=tasks.filter(task=>taskDateIso(task.date)===cell.iso),dayExams=exams.filter(exam=>exam.date===cell.iso),hasEvents=dayTasks.length||dayExams.length;return <button type="button" key={cell.iso} className={(cell.outside?'muted-day ':'')+(cell.iso===localIso()?'today ':'')+(cell.iso===selectedDay?'selected-day':'')} onClick={()=>setSelectedDay(cell.iso)}><span>{cell.date.getDate()}</span>{hasEvents&&<div className="calendar-events">{[...dayTasks,...dayExams].slice(0,3).map((event,index)=><i key={index} style={{background:subjects.find(s=>s.name===event.subject)?.color||'#6d5ed9'}}/>)}</div>}</button>})}</div></section>
+    <section className="panel day-agenda"><div className="panel-head"><div><h2>{new Date(selectedDay+'T12:00:00').toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'long'})}</h2><p>{selectedTasks.length+selectedExams.length} compromisso(s)</p></div></div>{!selectedTasks.length&&!selectedExams.length?<p className="exam-empty">Nenhuma tarefa ou prova nesta data.</p>:<div className="day-events">{selectedExams.map(exam=><div className="day-event" key={'exam-'+exam.id}><CalendarDays size={17}/><span><strong>{exam.title}</strong><small>Prova · {exam.subject}{exam.professor?' · Prof. '+exam.professor:''}</small></span></div>)}{selectedTasks.map(task=><div className="day-event" key={'task-'+task.id}><ListTodo size={17}/><span><strong>{task.title}</strong><small>{task.subject} · {task.duration} min</small></span></div>)}</div>}</section>
     <EditItemModal editing={editing} onClose={()=>setEditing(null)} subjects={subjects} setTasks={setTasks} setSubjects={setSubjects} setExams={setExams}/>
   </>
-
   if (active === 'Matérias') return <>
     <div className="welcome"><div><h1>Matérias</h1><p>Centralize todas as áreas da sua jornada.</p></div></div>
     <form className="quick-add" onSubmit={e=>{e.preventDefault();if(!subjectName.trim())return;setSubjects([...subjects,{id:Date.now(),name:subjectName,color:['#4b9bea','#a868d8','#3ebd93'][subjects.length%3],goal:3}]);setSubjectName('')}}><input value={subjectName} onChange={e=>setSubjectName(e.target.value)} placeholder="Nome da nova matéria"/><button className="primary"><Plus size={18}/> Adicionar</button></form>
@@ -273,7 +306,7 @@ function App() {
       <div className="brand"><div className="brand-mark"><img src="/essence-academy-logo-ui.png" alt=""/></div><span>Essence<span>Academy</span></span></div>
       <button className="close-nav" onClick={() => setMobileNav(false)}><X/></button>
       <nav>
-        {[[LayoutDashboard,'Hoje'],[ListTodo,'Planejamento'],[BookOpen,'Matérias']].map(([Icon,label]) =>
+        {[[LayoutDashboard,'Hoje'],[ListTodo,'Planejamento'],[CalendarDays,'Calendário'],[BookOpen,'Matérias']].map(([Icon,label]) =>
           <button key={label} className={active === label ? 'active' : ''} onClick={() => {setActive(label); setMobileNav(false)}}><Icon size={19}/>{label}</button>)}
       </nav>
       <div className="upgrade-card simple"><div className="mini-stars">✦</div><strong>Um passo por vez.</strong><p>Veja o que importa hoje e avance no seu ritmo.</p></div>
@@ -305,7 +338,7 @@ function App() {
             <div className="task-list">{filtered.length ? filtered.map(task => <div className={`task ${task.done ? 'done' : ''}`} key={task.id}>
               <button className="check" onClick={() => setTasks(tasks.map(t => t.id === task.id ? {...t,done:!t.done} : t))}>{task.done && <Check size={14}/>}</button>
               <div className="task-body"><strong>{task.title}</strong><div><span className="dot" style={{background: subjects.find(s=>s.name===task.subject)?.color}}></span>{task.subject}<span>•</span><Clock3 size={13}/>{task.duration} min</div></div>
-              <span className="date">{task.date}</span><div className="item-actions"><button className="edit-item" onClick={()=>setEditing({type:'task',item:task})} aria-label="Editar tarefa"><Pencil size={16}/></button><DeleteButton className="delete" item={`a tarefa “${task.title}”`} onConfirm={()=>setTasks(tasks.filter(t=>t.id!==task.id))}/></div>
+              <span className="date">{taskDateLabel(task.date)}</span><div className="item-actions"><button className="edit-item" onClick={()=>setEditing({type:'task',item:task})} aria-label="Editar tarefa"><Pencil size={16}/></button><DeleteButton className="delete" item={`a tarefa “${task.title}”`} onConfirm={()=>setTasks(tasks.filter(t=>t.id!==task.id))}/></div>
             </div>) : <div className="empty">Nenhuma tarefa encontrada.</div>}</div>
             <div className="progress-row"><span>Progresso diário</span><b>{progress}%</b><div className="progress"><i style={{width:`${progress}%`}}/></div></div>
           </section>
@@ -323,7 +356,7 @@ function App() {
     {modal && <div className="modal-backdrop" onMouseDown={() => setModal(false)}><div className="modal" onMouseDown={e=>e.stopPropagation()}><div className="modal-head"><div><h2>Nova tarefa</h2><p>Planeje seu próximo passo.</p></div><button onClick={()=>setModal(false)}><X/></button></div><form onSubmit={addTask}>
       <label>Tarefa<input required name="title" placeholder="Ex: Revisar capítulo 4" autoFocus/></label>
       <label>Matéria<select name="subject">{subjects.map(s=><option key={s.id}>{s.name}</option>)}</select></label>
-      <div className="form-row"><label>Quando<select name="date"><option>Hoje</option><option>Amanhã</option><option>Esta semana</option></select></label><label>Duração<input required name="duration" type="number" min="5" step="5" defaultValue="30"/></label></div>
+      <div className="form-row"><label>Data<input name="date" type="date" required defaultValue={localIso()}/></label><label>Duração<input required name="duration" type="number" min="5" step="5" defaultValue="30"/></label></div>
       <button className="primary submit" type="submit">Adicionar tarefa</button>
     </form></div></div>}
     <EditItemModal editing={editing} onClose={()=>setEditing(null)} subjects={subjects} setTasks={setTasks} setSubjects={setSubjects} setExams={setExams}/>
