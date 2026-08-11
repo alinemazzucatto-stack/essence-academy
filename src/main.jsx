@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BookOpen, CalendarDays, Check, ChevronRight, Clock3, Download, Flame, LayoutDashboard, ListTodo, Menu, Plus, Search, Settings, Sparkles, Target, Timer, Trash2, X } from 'lucide-react'
+import { Bell, BookOpen, CalendarDays, Check, ChevronRight, Clock3, Download, Flame, LayoutDashboard, ListTodo, Menu, Plus, Search, Settings, Sparkles, Target, Timer, Trash2, X } from 'lucide-react'
 import './styles.css'
 
 const initialSubjects = [
@@ -75,6 +75,8 @@ function App() {
   const [timer, setTimer] = useState(25 * 60)
   const [running, setRunning] = useState(false)
   const [installPrompt, setInstallPrompt] = useState(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settings, setSettings] = useStoredState('essence-settings', { name: 'Aline', notifications: false, reminderTime: '19:00', examDays: 2 })
 
   useEffect(() => {
     const captureInstall = event => { event.preventDefault(); setInstallPrompt(event) }
@@ -86,6 +88,26 @@ function App() {
     const id = setInterval(() => setTimer(v => v > 0 ? v - 1 : 25 * 60), 1000)
     return () => clearInterval(id)
   }, [running])
+  useEffect(() => {
+    if (!settings.notifications || !('Notification' in window) || Notification.permission !== 'granted') return
+    const checkReminders = async () => {
+      const now = new Date(), dateKey = now.toISOString().slice(0,10)
+      const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`
+      const registration = await navigator.serviceWorker?.ready
+      if (time === settings.reminderTime && localStorage.getItem('essence-daily-notified') !== dateKey) {
+        registration?.showNotification('Hora de estudar ✦', { body: `Você tem ${tasks.filter(t=>!t.done).length} tarefa(s) pendente(s).`, icon: '/icons/icon-192.png', tag: 'daily-study' })
+        localStorage.setItem('essence-daily-notified', dateKey)
+      }
+      const upcoming = exams.map(exam=>({...exam,days:Math.ceil((new Date(exam.date+'T12:00:00')-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/86400000)})).filter(exam=>exam.days>=0&&exam.days<=settings.examDays).sort((a,b)=>a.days-b.days)[0]
+      const examKey = upcoming ? `${upcoming.id}-${dateKey}` : ''
+      if (upcoming && localStorage.getItem('essence-exam-notified') !== examKey) {
+        registration?.showNotification('Prova se aproximando', { body: `${upcoming.title} — ${upcoming.days===0?'hoje':`em ${upcoming.days} dia(s)`}.`, icon: '/icons/icon-192.png', tag: 'upcoming-exam' })
+        localStorage.setItem('essence-exam-notified', examKey)
+      }
+    }
+    checkReminders(); const reminderId = setInterval(checkReminders, 30000)
+    return () => clearInterval(reminderId)
+  }, [settings, tasks, exams])
 
   const completed = tasks.filter(t => t.done).length
   const progress = tasks.length ? Math.round(completed / tasks.length * 100) : 0
@@ -94,6 +116,12 @@ function App() {
   const todayLabel = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }).format(new Date()).toUpperCase()
   const filtered = useMemo(() => tasks.filter(t => `${t.title} ${t.subject}`.toLowerCase().includes(query.toLowerCase())), [tasks, query])
 
+  async function saveSettings(e) {
+    e.preventDefault(); const data = new FormData(e.currentTarget)
+    let notifications = data.get('notifications') === 'on'
+    if (notifications && 'Notification' in window && Notification.permission !== 'granted') notifications = (await Notification.requestPermission()) === 'granted'
+    setSettings({ name: data.get('name').trim() || 'Estudante', notifications, reminderTime: data.get('reminderTime'), examDays: Number(data.get('examDays')) }); setSettingsOpen(false)
+  }
   function addTask(e) {
     e.preventDefault()
     const data = new FormData(e.currentTarget)
@@ -114,7 +142,7 @@ function App() {
       </nav>
       <div className="upgrade-card simple"><div className="mini-stars">✦</div><strong>Um passo por vez.</strong><p>Veja o que importa hoje e avance no seu ritmo.</p></div>
       {installPrompt && <button className="settings install-app" onClick={async()=>{await installPrompt.prompt();setInstallPrompt(null)}}><Download size={18}/> Instalar aplicativo</button>}
-      <button className="settings"><Settings size={18}/> Configurações</button>
+      <button className="settings" onClick={()=>setSettingsOpen(true)}><Settings size={18}/> Configurações</button>
     </aside>
 
     <main>
@@ -122,12 +150,12 @@ function App() {
         <button className="menu-button" onClick={() => setMobileNav(true)}><Menu/></button>
         <div className="search"><Search size={18}/><input placeholder="Buscar tarefa ou matéria..." value={query} onChange={e => setQuery(e.target.value)}/></div>
         <div className="streak"><Check size={18}/> <b>{progress}%</b> concluído</div>
-        <div className="avatar">AS</div>
+        <div className="avatar">{settings.name.split(/\s+/).slice(0,2).map(n=>n[0]).join('').toUpperCase()}</div>
       </header>
 
       <section className="content">
         {active !== 'Hoje' ? <WorkspacePage active={active} tasks={tasks} subjects={subjects} exams={exams} setTasks={setTasks} setSubjects={setSubjects} setExams={setExams} openTask={()=>setModal(true)}/> : <>
-        <div className="welcome"><div><p className="eyebrow">{todayLabel}</p><h1>Olá, Aline! <span>👋</span></h1><p>Você está indo muito bem. Vamos continuar?</p></div><button className="primary" onClick={() => setModal(true)}><Plus size={19}/> Nova tarefa</button></div>
+        <div className="welcome"><div><p className="eyebrow">{todayLabel}</p><h1>Olá, {settings.name.split(' ')[0]}! <span>👋</span></h1><p>Você está indo muito bem. Vamos continuar?</p></div><button className="primary" onClick={() => setModal(true)}><Plus size={19}/> Nova tarefa</button></div>
 
         <div className="stats-grid">
           <article className="stat"><div className="stat-icon purple"><Clock3/></div><div><span>Tempo concluído</span><strong>{studiedTime}</strong><small>Soma das tarefas finalizadas</small></div></article>
@@ -160,6 +188,12 @@ function App() {
       <label>Matéria<select name="subject">{subjects.map(s=><option key={s.id}>{s.name}</option>)}</select></label>
       <div className="form-row"><label>Quando<select name="date"><option>Hoje</option><option>Amanhã</option><option>Esta semana</option></select></label><label>Duração<input required name="duration" type="number" min="5" step="5" defaultValue="30"/></label></div>
       <button className="primary submit" type="submit">Adicionar tarefa</button>
+    </form></div></div>}
+    {settingsOpen && <div className="modal-backdrop" onMouseDown={()=>setSettingsOpen(false)}><div className="modal settings-modal" onMouseDown={e=>e.stopPropagation()}><div className="modal-head"><div><h2>Configurações</h2><p>Somente o essencial para sua rotina.</p></div><button onClick={()=>setSettingsOpen(false)}><X/></button></div><form onSubmit={saveSettings}>
+      <label>Seu nome<input name="name" defaultValue={settings.name}/></label>
+      <div className="notification-setting"><div><Bell size={19}/><span><strong>Lembretes</strong><small>Receba avisos enquanto o app estiver aberto.</small></span></div><label className="switch"><input name="notifications" type="checkbox" defaultChecked={settings.notifications}/><i/></label></div>
+      <div className="form-row"><label>Horário diário<input name="reminderTime" type="time" defaultValue={settings.reminderTime}/></label><label>Avisar prova antes<select name="examDays" defaultValue={settings.examDays}><option value="1">1 dia</option><option value="2">2 dias</option><option value="3">3 dias</option><option value="7">7 dias</option></select></label></div>
+      <p className="permission-note">O navegador solicitará sua permissão ao ativar os lembretes.</p><button className="primary submit">Salvar configurações</button>
     </form></div></div>}
   </div>
 }
