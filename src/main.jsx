@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Bell, BookOpen, CalendarDays, Check, ChevronRight, Clock3, Cloud, Download, Eye, EyeOff, Flame, LayoutDashboard, ListTodo, LogOut, Mail, Menu, Plus, Search, Settings, Sparkles, Target, Timer, Trash2, X } from 'lucide-react'
+import { Bell, BookOpen, CalendarDays, Check, ChevronRight, Clock3, Cloud, Download, Eye, EyeOff, Flame, LayoutDashboard, ListTodo, LogOut, Mail, Menu, Palette, Plus, Search, Settings, Sparkles, Target, Timer, Trash2, X } from 'lucide-react'
 import './styles.css'
 import { supabase } from './supabase'
 
@@ -138,12 +138,17 @@ function App() {
   const [running, setRunning] = useState(false)
   const [installPrompt, setInstallPrompt] = useState(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [settings, setSettings] = useStoredState('essence-settings', { name: 'Aline', notifications: false, reminderTime: '19:00', examDays: 2, onboardingComplete: false })
+  const [settings, setSettings] = useStoredState('essence-settings', { name: 'Aline', notifications: false, reminderTime: '19:00', examDays: 2, theme: 'light', accent: '#6d5ed9', onboardingComplete: false })
   const [session, setSession] = useState(null)
   const [authReady, setAuthReady] = useState(false)
   const [passwordRecovery, setPasswordRecovery] = useState(false)
   const [cloudReady, setCloudReady] = useState(false)
   const [syncStatus, setSyncStatus] = useState('local')
+  useEffect(() => {
+    const root=document.documentElement
+    root.dataset.theme=settings.theme||'light'
+    root.style.setProperty('--accent',settings.accent||'#6d5ed9')
+  },[settings.theme,settings.accent])
   useEffect(() => {
     supabase.auth.getSession().then(({data})=>{ setSession(data.session); setAuthReady(true) })
     const {data:listener}=supabase.auth.onAuthStateChange((event,nextSession)=>{setSession(nextSession);setAuthReady(true);if(event==='PASSWORD_RECOVERY')setPasswordRecovery(true);if(!nextSession)setCloudReady(false)})
@@ -159,7 +164,7 @@ function App() {
       const {data,error}=await supabase.from('study_data').select('tasks,subjects,exams,settings').eq('user_id',userId).maybeSingle()
       if(!active)return
       if(error){
-        if(owner!==userId){setTasks([]);setSubjects([]);setExams([]);setSettings({name:session.user.email?.split('@')[0]||'Estudante',notifications:false,reminderTime:'19:00',examDays:2,onboardingComplete:false})}
+        if(owner!==userId){setTasks([]);setSubjects([]);setExams([]);setSettings({name:session.user.email?.split('@')[0]||'Estudante',notifications:false,reminderTime:'19:00',examDays:2,theme:'light',accent:'#6d5ed9',onboardingComplete:false})}
         setCloudReady(true);setSyncStatus('error');return
       }
       if(data){
@@ -167,7 +172,7 @@ function App() {
         setTasks(data.tasks||[]);setSubjects(data.subjects||[]);setExams(data.exams||[]);setSettings(current=>({...current,...data.settings,onboardingComplete:complete}))
       }else{
         const canMigrate=!owner||owner===userId
-        const freshSettings={name:session.user.email?.split('@')[0]||'Estudante',notifications:false,reminderTime:'19:00',examDays:2,onboardingComplete:false}
+        const freshSettings={name:session.user.email?.split('@')[0]||'Estudante',notifications:false,reminderTime:'19:00',examDays:2,theme:'light',accent:'#6d5ed9',onboardingComplete:false}
         const payload=canMigrate?{tasks,subjects,exams,settings:{...settings,onboardingComplete:settings.onboardingComplete??Boolean(tasks.length||subjects.length||exams.length)}}:{tasks:[],subjects:[],exams:[],settings:freshSettings}
         if(!canMigrate){setTasks([]);setSubjects([]);setExams([]);setSettings(freshSettings)}else setSettings(payload.settings)
         await supabase.from('study_data').insert({user_id:userId,...payload})
@@ -217,7 +222,7 @@ function App() {
     e.preventDefault(); const data = new FormData(e.currentTarget)
     let notifications = data.get('notifications') === 'on'
     if (notifications && 'Notification' in window && Notification.permission !== 'granted') notifications = (await Notification.requestPermission()) === 'granted'
-    setSettings({ name: data.get('name').trim() || 'Estudante', notifications, reminderTime: data.get('reminderTime'), examDays: Number(data.get('examDays')) }); setSettingsOpen(false)
+    setSettings(current=>({ ...current, name: data.get('name').trim() || 'Estudante', notifications, reminderTime: data.get('reminderTime'), examDays: Number(data.get('examDays')), theme: data.get('theme') || 'light', accent: data.get('accent') || '#6d5ed9' })); setSettingsOpen(false)
   }
   function addTask(e) {
     e.preventDefault()
@@ -293,7 +298,7 @@ function App() {
       <button className="primary submit" type="submit">Adicionar tarefa</button>
     </form></div></div>}
     {settingsOpen && <div className="modal-backdrop" onMouseDown={()=>setSettingsOpen(false)}><div className="modal settings-modal" onMouseDown={e=>e.stopPropagation()}><div className="modal-head"><div><h2>Configurações</h2><p>Somente o essencial para sua rotina.</p></div><button onClick={()=>setSettingsOpen(false)}><X/></button></div><form onSubmit={saveSettings}>
-      <label>Seu nome<input name="name" defaultValue={settings.name}/></label>
+      <label>Seu nome<input name="name" defaultValue={settings.name}/></label><div className="appearance-setting"><div className="setting-title"><Palette size={19}/><span><strong>Aparência</strong><small>Escolha como o app combina com você.</small></span></div><div className="appearance-controls"><label>Modo<select name="theme" defaultValue={settings.theme||'light'}><option value="light">Claro</option><option value="dark">Escuro</option></select></label><label>Cor principal<div className="color-choice"><input name="accent" type="color" defaultValue={settings.accent||'#6d5ed9'}/><span>{settings.accent||'#6d5ed9'}</span></div></label></div></div>
       <div className="notification-setting"><div><Bell size={19}/><span><strong>Lembretes</strong><small>Receba avisos enquanto o app estiver aberto.</small></span></div><label className="switch"><input name="notifications" type="checkbox" defaultChecked={settings.notifications}/><i/></label></div>
       <div className="form-row"><label>Horário diário<input name="reminderTime" type="time" defaultValue={settings.reminderTime}/></label><label>Avisar prova antes<select name="examDays" defaultValue={settings.examDays}><option value="1">1 dia</option><option value="2">2 dias</option><option value="3">3 dias</option><option value="7">7 dias</option></select></label></div>
       <div className="account-row"><span><strong>Conta conectada</strong><small>{session.user.email}</small></span><button type="button" onClick={()=>supabase.auth.signOut()}><LogOut size={16}/> Sair</button></div><p className="permission-note">O navegador solicitará sua permissão ao ativar os lembretes.</p><button className="primary submit">Salvar configurações</button>
