@@ -28,18 +28,46 @@ function useStoredState(key, fallback) {
 
 
 function AuthScreen() {
+  const [mode, setMode] = useState('login')
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
-  async function sendLink(e) {
+  const changeMode = next => { setMode(next); setMessage(''); setPassword('') }
+  async function submit(e) {
     e.preventDefault(); setLoading(true); setMessage('')
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin, shouldCreateUser: true } })
-    setMessage(error ? 'Não foi possível enviar. Verifique o e-mail e tente novamente.' : 'Enviamos um link de acesso para o seu e-mail.')
+    let result
+    if (mode === 'login') result = await supabase.auth.signInWithPassword({ email, password })
+    else if (mode === 'signup') result = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin } })
+    else result = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
+    if (result.error) {
+      const invalid = result.error.message?.toLowerCase().includes('invalid login')
+      setMessage(invalid ? 'E-mail ou senha incorretos.' : 'Não foi possível concluir. Verifique os dados e tente novamente.')
+    } else if (mode === 'signup' && !result.data?.session) setMessage('Conta criada! Confirme seu e-mail para entrar.')
+    else if (mode === 'forgot') setMessage('Enviamos as instruções para redefinir sua senha.')
     setLoading(false)
   }
-  return <main className="auth-screen"><section className="auth-card"><div className="brand auth-brand"><div className="brand-mark"><Sparkles size={20}/></div><span>Essence<span>Academy</span></span></div><div className="auth-icon"><Mail size={24}/></div><h1>Seus estudos, em todos os lugares.</h1><p>Entre com seu e-mail. Você receberá um link seguro, sem precisar criar senha.</p><form onSubmit={sendLink}><label>E-mail<input type="email" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="voce@email.com" autoFocus/></label><button className="primary" disabled={loading}>{loading?'Enviando...':'Enviar link de acesso'}</button></form>{message&&<div className="auth-message">{message}</div>}<small>Ao entrar pela primeira vez, seus dados deste dispositivo serão salvos na sua conta.</small></section></main>
+  const title = mode === 'signup' ? 'Crie sua conta.' : mode === 'forgot' ? 'Recupere sua senha.' : 'Bem-vinda de volta.'
+  const description = mode === 'signup' ? 'Use seu e-mail e escolha uma senha para começar.' : mode === 'forgot' ? 'Informe seu e-mail para receber as instruções de recuperação.' : 'Entre com seu e-mail e sua senha.'
+  return <main className="auth-screen"><section className="auth-card"><div className="brand auth-brand"><div className="brand-mark"><Sparkles size={20}/></div><span>Essence<span>Academy</span></span></div><div className="auth-icon"><Mail size={24}/></div><h1>{title}</h1><p>{description}</p><form onSubmit={submit}><label>E-mail<input type="email" required value={email} onChange={e=>setEmail(e.target.value)} placeholder="voce@email.com" autoFocus autoComplete="email"/></label>{mode !== 'forgot'&&<label>Senha<input type="password" required minLength="8" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Mínimo de 8 caracteres" autoComplete={mode==='login'?'current-password':'new-password'}/></label>}<button className="primary" disabled={loading}>{loading?'Aguarde...':mode==='signup'?'Criar conta':mode==='forgot'?'Enviar instruções':'Entrar'}</button></form>{message&&<div className="auth-message">{message}</div>}<div className="auth-links">{mode==='login'&&<><button type="button" onClick={()=>changeMode('forgot')}>Esqueci minha senha</button><button type="button" onClick={()=>changeMode('signup')}>Criar uma conta</button></>}{mode!=='login'&&<button type="button" onClick={()=>changeMode('login')}>Voltar para entrar</button>}</div><small>Seus estudos ficam sincronizados com segurança na sua conta.</small></section></main>
 }
 
+function PasswordResetScreen({ onDone }) {
+  const [password,setPassword]=useState('')
+  const [confirmation,setConfirmation]=useState('')
+  const [loading,setLoading]=useState(false)
+  const [message,setMessage]=useState('')
+  async function save(e){
+    e.preventDefault()
+    if(password!==confirmation){setMessage('As senhas precisam ser iguais.');return}
+    setLoading(true);setMessage('')
+    const {error}=await supabase.auth.updateUser({password})
+    if(error)setMessage('Não foi possível alterar a senha. Solicite um novo link de recuperação.')
+    else onDone()
+    setLoading(false)
+  }
+  return <main className="auth-screen"><section className="auth-card"><div className="brand auth-brand"><div className="brand-mark"><Sparkles size={20}/></div><span>Essence<span>Academy</span></span></div><h1>Crie uma nova senha.</h1><p>Escolha uma senha com pelo menos 8 caracteres.</p><form onSubmit={save}><label>Nova senha<input type="password" required minLength="8" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="new-password" autoFocus/></label><label>Confirmar senha<input type="password" required minLength="8" value={confirmation} onChange={e=>setConfirmation(e.target.value)} autoComplete="new-password"/></label><button className="primary" disabled={loading}>{loading?'Salvando...':'Salvar nova senha'}</button></form>{message&&<div className="auth-message auth-error">{message}</div>}</section></main>
+}
 function LoadingScreen() { return <main className="auth-screen"><div className="app-loading"><div className="brand-mark"><Sparkles size={20}/></div><p>Carregando sua rotina...</p></div></main> }
 function Onboarding({ email, onComplete }) {
   const options = ['Matemática','Português','Biologia','História','Geografia','Redação']
@@ -108,11 +136,12 @@ function App() {
   const [settings, setSettings] = useStoredState('essence-settings', { name: 'Aline', notifications: false, reminderTime: '19:00', examDays: 2, onboardingComplete: false })
   const [session, setSession] = useState(null)
   const [authReady, setAuthReady] = useState(false)
+  const [passwordRecovery, setPasswordRecovery] = useState(false)
   const [cloudReady, setCloudReady] = useState(false)
   const [syncStatus, setSyncStatus] = useState('local')
   useEffect(() => {
     supabase.auth.getSession().then(({data})=>{ setSession(data.session); setAuthReady(true) })
-    const {data:listener}=supabase.auth.onAuthStateChange((_event,nextSession)=>{setSession(nextSession);setAuthReady(true);if(!nextSession)setCloudReady(false)})
+    const {data:listener}=supabase.auth.onAuthStateChange((event,nextSession)=>{setSession(nextSession);setAuthReady(true);if(event==='PASSWORD_RECOVERY')setPasswordRecovery(true);if(!nextSession)setCloudReady(false)})
     return()=>listener.subscription.unsubscribe()
   },[])
 
@@ -197,6 +226,7 @@ function App() {
 
   if (!authReady) return <LoadingScreen />
   if (!session) return <AuthScreen />
+  if (passwordRecovery) return <PasswordResetScreen onDone={()=>setPasswordRecovery(false)} />
   if (!cloudReady) return <LoadingScreen />
   if (!settings.onboardingComplete) return <Onboarding email={session.user.email} onComplete={(name,names)=>{setSubjects(names.map((subject,index)=>({id:Date.now()+index,name:subject,color:['#7c6ee6','#3ebd93','#f3a85f','#ea7186','#4b9bea','#a868d8'][index%6],goal:3})));setTasks([]);setExams([]);setSettings(current=>({...current,name,onboardingComplete:true}))}} />
 
