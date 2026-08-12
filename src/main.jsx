@@ -110,6 +110,19 @@ function PasswordResetScreen({ onDone }) {
   return <main className="auth-screen"><section className="auth-card"><div className="brand auth-brand"><div className="brand-mark"><img src="/essence-academy-logo-ui.png" alt=""/></div><span>Essence<span>Academy</span></span></div><h1>Crie uma nova senha.</h1><p>Escolha uma senha com pelo menos 8 caracteres.</p><form onSubmit={save}><label>Nova senha<PasswordField required minLength="8" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="new-password" autoFocus/></label><label>Confirmar senha<PasswordField required minLength="8" value={confirmation} onChange={e=>setConfirmation(e.target.value)} autoComplete="new-password"/></label><button className="primary" disabled={loading}>{loading?'Salvando...':'Salvar nova senha'}</button></form>{message&&<div className="auth-message auth-error">{message}</div>}</section></main>
 }
 function LoadingScreen() { return <main className="auth-screen"><div className="app-loading"><div className="brand-mark"><img src="/essence-academy-logo-ui.png" alt=""/></div><p>Carregando sua rotina...</p></div></main> }
+function SubscriptionScreen({ email, status, checking, onCheck, onSignOut }) {
+  const blockedMessage = status === 'late' ? 'Identificamos uma mensalidade pendente. Regularize o pagamento para continuar.' : status === 'refunded' || status === 'chargeback' ? 'Esta assinatura não está mais ativa.' : status === 'canceled' ? 'Sua assinatura foi cancelada. Assine novamente para continuar.' : 'Assine para organizar seus estudos com clareza, foco e constância.'
+  return <main className="auth-screen subscription-screen"><section className="auth-card subscription-card">
+    <div className="brand auth-brand"><div className="brand-mark"><img src="/essence-academy-logo-ui.png" alt=""/></div><span>Essence<span>Academy</span></span></div>
+    <div className="subscription-badge">PLANO ESSENCE</div><h1>Seu espaço de estudos, sem complicação.</h1><p>{blockedMessage}</p>
+    <div className="subscription-price"><strong>R$ 24,90</strong><span>/mês</span></div>
+    <ul className="subscription-benefits"><li><Check size={17}/> Planejamento, matérias e provas</li><li><Check size={17}/> Metas semanais e modo foco</li><li><Check size={17}/> Dados sincronizados com segurança</li></ul>
+    <a className="primary subscription-buy" href="https://pay.kiwify.com.br/0c19JMI" target="_blank" rel="noreferrer">Assinar agora <ChevronRight size={18}/></a>
+    <button className="subscription-check" type="button" onClick={onCheck} disabled={checking}>{checking?'Verificando...':'Já paguei, verificar acesso'}</button>
+    <small>A compra precisa usar o mesmo e-mail da conta: <strong>{email}</strong></small>
+    <button className="subscription-signout" type="button" onClick={onSignOut}><LogOut size={15}/> Entrar com outra conta</button>
+  </section></main>
+}
 function Onboarding({ email, onComplete }) {
   const options = ['Matemática','Português','Biologia','História','Geografia','Redação']
   const [name,setName] = useState(email?.split('@')[0] || '')
@@ -232,6 +245,9 @@ function App() {
   const [settings, setSettings] = useStoredState('essence-settings', { name: 'Aline', notifications: false, reminderTime: '19:00', examDays: 2, theme: 'light', accent: '#6d5ed9', onboardingComplete: false })
   const [session, setSession] = useState(null)
   const [authReady, setAuthReady] = useState(false)
+  const [subscription, setSubscription] = useState(null)
+  const [subscriptionReady, setSubscriptionReady] = useState(false)
+  const [checkingSubscription, setCheckingSubscription] = useState(false)
   const [passwordRecovery, setPasswordRecovery] = useState(false)
   const [cloudReady, setCloudReady] = useState(false)
   const [syncStatus, setSyncStatus] = useState('local')
@@ -247,9 +263,21 @@ function App() {
   },[])
   useEffect(() => {
     supabase.auth.getSession().then(({data})=>{ setSession(data.session); setAuthReady(true) })
-    const {data:listener}=supabase.auth.onAuthStateChange((event,nextSession)=>{setSession(nextSession);setAuthReady(true);if(event==='PASSWORD_RECOVERY')setPasswordRecovery(true);if(!nextSession)setCloudReady(false)})
+    const {data:listener}=supabase.auth.onAuthStateChange((event,nextSession)=>{setSession(nextSession);setAuthReady(true);if(event==='PASSWORD_RECOVERY')setPasswordRecovery(true);if(!nextSession){setCloudReady(false);setSubscription(null);setSubscriptionReady(false)}})
     return()=>listener.subscription.unsubscribe()
   },[])
+
+  async function checkSubscription(showLoading=true) {
+    if(!session?.user?.email)return
+    if(showLoading)setCheckingSubscription(true)
+    const {data}=await supabase.from('subscriptions').select('status,expires_at,updated_at').eq('email',session.user.email.toLowerCase()).maybeSingle()
+    setSubscription(data||null);setSubscriptionReady(true);setCheckingSubscription(false)
+  }
+
+  useEffect(() => {
+    if(!session?.user?.email)return
+    setSubscriptionReady(false);checkSubscription(false)
+  },[session?.user?.email])
 
   useEffect(() => {
     if(!session?.user?.id)return
@@ -379,6 +407,9 @@ function App() {
   if (!authReady) return <LoadingScreen />
   if (!session) return <AuthScreen />
   if (passwordRecovery) return <PasswordResetScreen onDone={()=>setPasswordRecovery(false)} />
+  if (!subscriptionReady) return <LoadingScreen />
+  const subscriptionAllowed = ['active','beta','canceling'].includes(subscription?.status) || (subscription?.status==='canceled' && subscription?.expires_at && new Date(subscription.expires_at)>new Date())
+  if (!subscriptionAllowed) return <SubscriptionScreen email={session.user.email} status={subscription?.status} checking={checkingSubscription} onCheck={()=>checkSubscription(true)} onSignOut={()=>supabase.auth.signOut()} />
   if (!cloudReady) return <LoadingScreen />
   if (!settings.onboardingComplete) return <Onboarding email={session.user.email} onComplete={(name,names)=>{setSubjects(names.map((subject,index)=>({id:Date.now()+index,name:subject,color:['#7c6ee6','#3ebd93','#f3a85f','#ea7186','#4b9bea','#a868d8'][index%6],goal:3})));setTasks([]);setExams([]);setSettings(current=>({...current,name,onboardingComplete:true}))}} />
 
