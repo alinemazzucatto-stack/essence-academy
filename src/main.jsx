@@ -63,6 +63,42 @@ function useStoredState(key, fallback) {
 }
 
 
+const CHECKOUT_URL = 'https://pay.kiwify.com.br/0c19JMI'
+
+function SalesPage() {
+  useEffect(()=>{
+    document.title='Essence Academy | Organize seus estudos'
+    const description=document.querySelector('meta[name="description"]')
+    if(description)description.setAttribute('content','Organize matérias, tarefas, provas e sessões de foco em uma plataforma simples para escola, faculdade e concursos.')
+  },[])
+  const checkout=(label,className='sales-cta')=><a className={className} href={CHECKOUT_URL} target="_blank" rel="noreferrer">{label}<ChevronRight size={18}/></a>
+  return <div className="sales-page">
+    <header className="sales-header"><a className="sales-brand" href="/vendas" aria-label="Essence Academy"><span><img src="/essence-academy-logo-ui.png" alt=""/></span><strong>Essence <b>Academy</b></strong></a><nav><a href="#como-funciona">Como funciona</a><a href="#recursos">Recursos</a><a href="#duvidas">Dúvidas</a></nav><div className="sales-header-actions"><a className="sales-login" href="/">Já tenho conta</a>{checkout('Começar agora','sales-cta compact')}</div></header>
+    <main className="sales-main">
+      <section className="sales-hero"><div className="sales-hero-copy"><div className="sales-eyebrow"><span>✦</span> ORGANIZAÇÃO SEM COMPLICAÇÃO</div><h1>Pare de improvisar.<br/><em>Estude com clareza.</em></h1><p>Matérias, tarefas, provas, metas e foco reunidos em uma plataforma leve para você saber exatamente o que estudar — todos os dias.</p><div className="sales-hero-actions">{checkout('Organizar meus estudos')}<a className="sales-secondary" href="#como-funciona">Ver como funciona</a></div><small><Check size={14}/> Para escola, faculdade, concursos e cursos livres</small></div>
+        <div className="sales-product" aria-label="Prévia do painel Essence Academy"><div className="product-window"><div className="product-bar"><i/><i/><i/><span>Essence Academy</span></div><div className="product-body"><aside><img src="/essence-academy-logo-ui.png" alt=""/><b>Hoje</b><span>Planejamento</span><span>Calendário</span><span>Matérias</span><span>Metas</span></aside><div className="product-content"><div className="product-welcome"><span>OLÁ, ESTUDANTE!</span><strong>O que vamos conquistar hoje?</strong></div><div className="product-stats"><i><small>Tarefas concluídas</small><b>4 de 6</b></i><i><small>Tempo de estudo</small><b>2h 15min</b></i></div><div className="product-grid"><div className="product-tasks"><strong>Plano de hoje</strong><p><Check size={12}/> Revisar capítulo 4</p><p><span/> Exercícios de cálculo</p><p><span/> Resumo de anatomia</p></div><div className="product-focus"><small>MODO FOCO</small><b>25:00</b><span>Começar sessão</span></div></div></div></div></div><div className="floating-proof proof-one"><Check size={16}/><span><b>Rotina organizada</b><small>Um passo de cada vez</small></span></div><div className="floating-proof proof-two"><Target size={17}/><span><b>Metas possíveis</b><small>Progresso visível</small></span></div></div>
+      </section>
+
+      <section className="sales-audience"><span>FEITO PARA QUEM ESTUDA</span><div><b>Ensino médio</b><i/> <b>Faculdade</b><i/> <b>Concursos</b><i/> <b>Cursos livres</b></div></section>
+
+      <section className="sales-pain"><div className="sales-section-title"><span>SE ISSO ACONTECE COM VOCÊ...</span><h2>Estudar não precisa parecer uma bagunça.</h2><p>O problema nem sempre é falta de esforço. Muitas vezes, falta um lugar simples para enxergar prioridades e manter o ritmo.</p></div><div className="pain-grid"><article><span>01</span><h3>Você anota tudo em lugares diferentes</h3><p>Caderno, calendário, bloco de notas e mensagens acabam espalhando sua rotina.</p></article><article><span>02</span><h3>As provas chegam de surpresa</h3><p>Sem uma visão clara das datas, você percebe tarde demais o que deveria revisar.</p></article><article><span>03</span><h3>Você planeja, mas não mantém constância</h3><p>Listas enormes cansam. O que funciona é enxergar o próximo passo possível.</p></article></div></section>
+
+      <section className="sales-solution" id="recursos"><div className="solution-visual"><div className="solution-calendar"><div><CalendarDays size={21}/><span><small>PRÓXIMA PROVA</small><b>Anatomia Humana</b></span></div><strong>18<small>SET</small></strong></div><div className="solution-goal"><span><Target size={20}/><b>Meta da semana</b></span><div><i style={{width:'72%'}}/></div><small>8 de 11 sessões concluídas</small></div><div className="solution-focus"><Timer size={24}/><span><small>SESSÃO CONCLUÍDA</small><b>25 minutos de foco</b></span><Check size={21}/></div></div><div className="solution-copy"><div className="sales-eyebrow">TUDO NO LUGAR CERTO</div><h2>Uma rotina simples o bastante para você realmente usar.</h2><p>A Essence Academy mostra o essencial sem transformar organização em mais uma tarefa difícil.</p><ul><li><Check size={17}/><span><b>Planeje tarefas e provas</b><small>Datas, matérias, duração e professor em poucos passos.</small></span></li><li><Check size={17}/><span><b>Enxergue sua semana</b><small>Calendário e metas mostram onde está seu esforço.</small></span></li><li><Check size={17}/><span><b>Entre no modo foco</b><small>Sessões de 25 ou 50 minutos registradas automaticamente.</small></span></li><li><Check size={17}/><span><b>Use no celular ou computador</b><small>Instale como aplicativo e mantenha os dados sincronizados.</small></span></li></ul>{checkout('Quero começar')}</div></section>
+
+      <section className="sales-steps" id="como-funciona"><div className="sales-section-title"><span>COMECE EM POUCOS MINUTOS</span><h2>Como funciona</h2></div><div className="steps-grid"><article><b>1</b><BookOpen/><h3>Crie seu espaço</h3><p>Informe seu objetivo e escolha as matérias da sua rotina.</p></article><article><b>2</b><CalendarDays/><h3>Organize o caminho</h3><p>Cadastre tarefas, provas e metas semanais realistas.</p></article><article><b>3</b><Timer/><h3>Estude e acompanhe</h3><p>Use o foco, conclua atividades e veja seu progresso crescer.</p></article></div></section>
+
+      <section className="sales-features"><div className="sales-section-title"><span>O ESSENCIAL, BEM FEITO</span><h2>Tudo o que você precisa para estudar melhor.</h2></div><div className="feature-grid"><article><ListTodo/><h3>Planejamento</h3><p>Tarefas organizadas por matéria, data e duração.</p></article><article><CalendarDays/><h3>Provas e calendário</h3><p>Datas importantes visíveis antes que virem urgência.</p></article><article><Target/><h3>Metas semanais</h3><p>Objetivos por matéria e progresso fácil de acompanhar.</p></article><article><Timer/><h3>Modo Foco</h3><p>Sessões cronometradas que entram no seu histórico.</p></article><article><Palette/><h3>Personalização</h3><p>Modo claro ou escuro e a cor principal que você preferir.</p></article><article><Cloud/><h3>Sincronização</h3><p>Seus estudos disponíveis na sua conta em diferentes dispositivos.</p></article></div></section>
+
+      <section className="sales-offer"><div className="offer-copy"><span>PLANO ESSENCE</span><h2>Menos bagunça.<br/>Mais constância.</h2><p>Uma assinatura simples para cuidar de toda a sua rotina de estudos.</p><ul><li><Check/> Acesso completo à plataforma</li><li><Check/> Todas as matérias e recursos</li><li><Check/> Aplicativo instalável (PWA)</li><li><Check/> Sincronização dos estudos</li><li><Check/> Atualizações incluídas</li></ul></div><div className="offer-card"><small>ASSINATURA MENSAL</small><div><sup>R$</sup><strong>24</strong><span>,90<br/><small>por mês</small></span></div>{checkout('Assinar Essence Academy')}<p>Pagamento processado pela Kiwify.<br/>Use o mesmo e-mail na compra e no aplicativo.</p><a href="/">Já sou assinante</a></div></section>
+
+      <section className="sales-faq" id="duvidas"><div className="sales-section-title"><span>DÚVIDAS FREQUENTES</span><h2>Antes de começar</h2></div><div className="faq-list"><details><summary>Funciona como aplicativo no celular?<Plus size={18}/></summary><p>Sim. A Essence Academy é uma PWA: você pode instalar pela tela inicial e usar com aparência de aplicativo, sem depender de uma loja.</p></details><details><summary>Posso usar para matérias da faculdade?<Plus size={18}/></summary><p>Sim. Existem sugestões para escola e faculdade, e você também pode cadastrar qualquer disciplina personalizada.</p></details><details><summary>Como recebo o acesso depois da compra?<Plus size={18}/></summary><p>Faça a compra e crie sua conta usando o mesmo e-mail. A liberação é identificada automaticamente.</p></details><details><summary>Preciso instalar alguma coisa?<Plus size={18}/></summary><p>Não. Você pode usar diretamente pelo navegador ou instalar como aplicativo se preferir.</p></details><details><summary>Como gerencio minha assinatura?<Plus size={18}/></summary><p>O pagamento e o gerenciamento da assinatura são realizados pela Kiwify.</p></details></div></section>
+
+      <section className="sales-final"><img src="/essence-academy-logo-ui.png" alt=""/><span>SEU PRÓXIMO PASSO PODE SER SIMPLES</span><h2>Organize hoje o estudo que aproxima você dos seus objetivos.</h2><p>Comece com uma matéria, uma tarefa e um pouco de foco.</p>{checkout('Começar agora por R$ 24,90')}</section>
+    </main>
+    <footer className="sales-footer"><a className="sales-brand" href="/vendas"><span><img src="/essence-academy-logo-ui.png" alt=""/></span><strong>Essence <b>Academy</b></strong></a><p>Organização de estudos para avançar um passo por vez.</p><div><a href="/">Entrar no aplicativo</a><a href="#duvidas">Dúvidas frequentes</a></div><small>© {new Date().getFullYear()} Essence Academy.</small></footer>
+    <div className="sales-mobile-cta">{checkout('Começar por R$ 24,90')}</div>
+  </div>
+}
 function PasswordField({ value, onChange, ...props }) {
   const [visible, setVisible] = useState(false)
   return <div className="password-field"><input {...props} type={visible?'text':'password'} value={value} onChange={onChange}/><button type="button" onClick={()=>setVisible(current=>!current)} aria-label={visible?'Ocultar senha':'Mostrar senha'} title={visible?'Ocultar senha':'Mostrar senha'}>{visible?<EyeOff size={18}/>:<Eye size={18}/>}</button></div>
@@ -543,7 +579,9 @@ function App() {
   </div>
 }
 
-createRoot(document.getElementById('root')).render(<App />)
+function Root() { return window.location.pathname.replace(/\/+$/,'') === '/vendas' ? <SalesPage/> : <App/> }
+
+createRoot(document.getElementById('root')).render(<Root />)
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('/service-worker.js'))
