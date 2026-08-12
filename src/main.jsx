@@ -124,11 +124,18 @@ function SubscriptionScreen({ email, status, checking, onCheck, onSignOut }) {
   </section></main>
 }
 function Onboarding({ email, onComplete }) {
-  const options = ['Matemática','Português','Biologia','História','Geografia','Redação']
+  const options = ['Matemática','Português','Biologia','História','Geografia','Redação','Física','Química','Inglês','Cálculo','Estatística','Direito','Administração','Contabilidade','Economia','Anatomia','Fisiologia','Psicologia','Programação','Metodologia científica']
   const [name,setName] = useState(email?.split('@')[0] || '')
   const [selected,setSelected] = useState([])
+  const [customSubject,setCustomSubject] = useState('')
   const toggle = item => setSelected(v=>v.includes(item)?v.filter(x=>x!==item):[...v,item])
-  return <main className="onboarding-screen"><section className="onboarding-card"><div className="onboarding-step">PRIMEIRO ACESSO</div><div className="brand auth-brand"><div className="brand-mark"><img src="/essence-academy-logo-ui.png" alt=""/></div><span>Essence<span>Academy</span></span></div><h1>Vamos preparar seu espaço.</h1><p>São apenas duas escolhas. Você poderá alterar tudo depois.</p><form onSubmit={e=>{e.preventDefault();onComplete(name.trim()||'Estudante',selected)}}><label>Como podemos chamar você?<input value={name} onChange={e=>setName(e.target.value)} required autoFocus/></label><fieldset><legend>Quais matérias você estuda?</legend><div className="subject-choices">{options.map(item=><button type="button" key={item} className={selected.includes(item)?'chosen':''} onClick={()=>toggle(item)}>{selected.includes(item)&&<Check size={14}/>} {item}</button>)}</div></fieldset><button className="primary" disabled={!selected.length}>Começar meus estudos</button></form><small>Escolha pelo menos uma matéria.</small></section></main>
+  const addCustomSubject = () => {
+    const subject=customSubject.trim()
+    if(!subject)return
+    setSelected(current=>current.some(item=>item.toLocaleLowerCase('pt-BR')===subject.toLocaleLowerCase('pt-BR'))?current:[...current,subject])
+    setCustomSubject('')
+  }
+  return <main className="onboarding-screen"><section className="onboarding-card"><div className="onboarding-step">PRIMEIRO ACESSO</div><div className="brand auth-brand"><div className="brand-mark"><img src="/essence-academy-logo-ui.png" alt=""/></div><span>Essence<span>Academy</span></span></div><h1>Vamos preparar seu espaço.</h1><p>Só precisamos do seu nome e das matérias que fazem parte da sua rotina.</p><form onSubmit={e=>{e.preventDefault();onComplete(name.trim()||'Estudante',selected)}}><label>Como podemos chamar você?<input value={name} onChange={e=>setName(e.target.value)} required autoFocus/></label><fieldset><legend>Quais matérias você estuda?</legend><div className="subject-choices">{options.map(item=><button type="button" key={item} className={selected.includes(item)?'chosen':''} onClick={()=>toggle(item)}>{selected.includes(item)&&<Check size={14}/>} {item}</button>)}{selected.filter(item=>!options.includes(item)).map(item=><button type="button" key={item} className="chosen" onClick={()=>toggle(item)}><Check size={14}/> {item}</button>)}</div><div className="custom-subject"><input value={customSubject} onChange={e=>setCustomSubject(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();addCustomSubject()}}} placeholder="Outra matéria da escola ou faculdade"/><button type="button" onClick={addCustomSubject} disabled={!customSubject.trim()}><Plus size={16}/> Adicionar</button></div></fieldset><button className="primary" disabled={!selected.length}>Começar meus estudos</button></form><small>Escolha ou adicione pelo menos uma matéria.</small></section></main>
 }
 function DeleteButton({ onConfirm, item, className = '', size = 17 }) {
   const [open, setOpen] = useState(false)
