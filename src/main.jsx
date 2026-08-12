@@ -63,7 +63,7 @@ function useStoredState(key, fallback) {
 }
 
 
-const CHECKOUT_URL = 'https://pay.kiwify.com.br/0c19JMI'
+const CHECKOUT_URL = 'https://pay.kiwify.com.br/0c19JMl'
 
 function SalesPage() {
   useEffect(()=>{
@@ -153,7 +153,7 @@ function SubscriptionScreen({ email, status, checking, onCheck, onSignOut }) {
     <div className="subscription-badge">PLANO ESSENCE</div><h1>Seu espaço de estudos, sem complicação.</h1><p>{blockedMessage}</p>
     <div className="subscription-price"><strong>R$ 24,90</strong><span>/mês</span></div>
     <ul className="subscription-benefits"><li><Check size={17}/> Planejamento, matérias e provas</li><li><Check size={17}/> Metas semanais e modo foco</li><li><Check size={17}/> Dados sincronizados com segurança</li></ul>
-    <a className="primary subscription-buy" href="https://pay.kiwify.com.br/0c19JMI" target="_blank" rel="noreferrer">Assinar agora <ChevronRight size={18}/></a>
+    <a className="primary subscription-buy" href={CHECKOUT_URL} target="_blank" rel="noreferrer">Assinar agora <ChevronRight size={18}/></a>
     <button className="subscription-check" type="button" onClick={onCheck} disabled={checking}>{checking?'Verificando...':'Já paguei, verificar acesso'}</button>
     <small>A compra precisa usar o mesmo e-mail da conta: <strong>{email}</strong></small>
     <button className="subscription-signout" type="button" onClick={onSignOut}><LogOut size={15}/> Entrar com outra conta</button>
