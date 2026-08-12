@@ -125,7 +125,12 @@ function SubscriptionScreen({ email, status, checking, onCheck, onSignOut }) {
 }
 function Onboarding({ email, onComplete }) {
   const options = ['Matemática','Português','Biologia','História','Geografia','Redação','Física','Química','Inglês','Cálculo','Estatística','Direito','Administração','Contabilidade','Economia','Anatomia','Fisiologia','Psicologia','Programação','Metodologia científica']
+  const levels = ['Ensino médio','Faculdade','Concurso','Curso livre']
+  const goals = ['Organizar a rotina','Melhorar as notas','Preparar provas','Criar constância']
+  const [step,setStep]=useState(0)
   const [name,setName] = useState(email?.split('@')[0] || '')
+  const [studyLevel,setStudyLevel]=useState('')
+  const [studyGoal,setStudyGoal]=useState('')
   const [selected,setSelected] = useState([])
   const [customSubject,setCustomSubject] = useState('')
   const toggle = item => setSelected(v=>v.includes(item)?v.filter(x=>x!==item):[...v,item])
@@ -135,7 +140,40 @@ function Onboarding({ email, onComplete }) {
     setSelected(current=>current.some(item=>item.toLocaleLowerCase('pt-BR')===subject.toLocaleLowerCase('pt-BR'))?current:[...current,subject])
     setCustomSubject('')
   }
-  return <main className="onboarding-screen"><section className="onboarding-card"><div className="onboarding-step">PRIMEIRO ACESSO</div><div className="brand auth-brand"><div className="brand-mark"><img src="/essence-academy-logo-ui.png" alt=""/></div><span>Essence<span>Academy</span></span></div><h1>Vamos preparar seu espaço.</h1><p>Só precisamos do seu nome e das matérias que fazem parte da sua rotina.</p><form onSubmit={e=>{e.preventDefault();onComplete(name.trim()||'Estudante',selected)}}><label>Como podemos chamar você?<input value={name} onChange={e=>setName(e.target.value)} required autoFocus/></label><fieldset><legend>Quais matérias você estuda?</legend><div className="subject-choices">{options.map(item=><button type="button" key={item} className={selected.includes(item)?'chosen':''} onClick={()=>toggle(item)}>{selected.includes(item)&&<Check size={14}/>} {item}</button>)}{selected.filter(item=>!options.includes(item)).map(item=><button type="button" key={item} className="chosen" onClick={()=>toggle(item)}><Check size={14}/> {item}</button>)}</div><div className="custom-subject"><input value={customSubject} onChange={e=>setCustomSubject(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();addCustomSubject()}}} placeholder="Outra matéria da escola ou faculdade"/><button type="button" onClick={addCustomSubject} disabled={!customSubject.trim()}><Plus size={16}/> Adicionar</button></div></fieldset><button className="primary" disabled={!selected.length}>Começar meus estudos</button></form><small>Escolha ou adicione pelo menos uma matéria.</small></section></main>
+  return <main className="onboarding-screen"><section className="onboarding-card improved-onboarding">
+    <div className="onboarding-progress"><span>{step+1} de 3</span><div>{[0,1,2].map(item=><i key={item} className={item<=step?'filled':''}/>)}</div></div>
+    <div className="brand auth-brand"><div className="brand-mark"><img src="/essence-academy-logo-ui.png" alt=""/></div><span>Essence<span>Academy</span></span></div>
+    {step===0&&<div className="onboarding-intro"><div className="intro-icon"><BookOpen size={27}/></div><div className="onboarding-step">SEU ESPAÇO DE ESTUDOS</div><h1>Organização que acompanha seu ritmo.</h1><p>Vamos personalizar a plataforma em menos de um minuto. Depois, mostraremos cada parte do aplicativo.</p><div className="intro-benefits"><span><Check size={15}/> Planejamento simples</span><span><Check size={15}/> Provas e metas no lugar certo</span><span><Check size={15}/> Foco sem distrações</span></div><button className="primary onboarding-next" type="button" onClick={()=>setStep(1)}>Começar <ChevronRight size={18}/></button></div>}
+    {step===1&&<div className="onboarding-stage"><div className="onboarding-step">SOBRE VOCÊ</div><h1>Como é sua rotina de estudos?</h1><p>Isso ajuda a preparar uma experiência mais próxima do que você precisa.</p><label>Como podemos chamar você?<input value={name} onChange={e=>setName(e.target.value)} required autoFocus/></label><fieldset><legend>Onde você estuda?</legend><div className="profile-choices">{levels.map(item=><button type="button" key={item} className={studyLevel===item?'chosen':''} onClick={()=>setStudyLevel(item)}>{item}</button>)}</div></fieldset><fieldset><legend>Qual é seu principal objetivo?</legend><div className="profile-choices">{goals.map(item=><button type="button" key={item} className={studyGoal===item?'chosen':''} onClick={()=>setStudyGoal(item)}>{item}</button>)}</div></fieldset><div className="onboarding-actions"><button type="button" className="onboarding-back" onClick={()=>setStep(0)}>Voltar</button><button type="button" className="primary" disabled={!name.trim()||!studyLevel||!studyGoal} onClick={()=>setStep(2)}>Continuar <ChevronRight size={17}/></button></div></div>}
+    {step===2&&<form className="onboarding-stage" onSubmit={e=>{e.preventDefault();onComplete(name.trim()||'Estudante',selected,{studyLevel,studyGoal,tourComplete:false})}}><div className="onboarding-step">SUAS MATÉRIAS</div><h1>O que faz parte da sua jornada?</h1><p>Selecione quantas quiser. Você poderá adicionar, editar ou remover matérias depois.</p><fieldset><legend>Escolha suas matérias</legend><div className="subject-choices">{options.map(item=><button type="button" key={item} className={selected.includes(item)?'chosen':''} onClick={()=>toggle(item)}>{selected.includes(item)&&<Check size={14}/>} {item}</button>)}{selected.filter(item=>!options.includes(item)).map(item=><button type="button" key={item} className="chosen" onClick={()=>toggle(item)}><Check size={14}/> {item}</button>)}</div><div className="custom-subject"><input value={customSubject} onChange={e=>setCustomSubject(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();addCustomSubject()}}} placeholder="Outra matéria da escola ou faculdade"/><button type="button" onClick={addCustomSubject} disabled={!customSubject.trim()}><Plus size={16}/> Adicionar</button></div></fieldset><div className="onboarding-actions"><button type="button" className="onboarding-back" onClick={()=>setStep(1)}>Voltar</button><button className="primary" disabled={!selected.length}>Entrar na plataforma <ChevronRight size={17}/></button></div><small>Escolha ou adicione pelo menos uma matéria.</small></form>}
+  </section></main>
+}
+function GuidedTour({ onFinish }) {
+  const steps=[
+    {target:'[data-tour="welcome"]',title:'Este é o seu resumo de hoje',text:'Aqui você vê o que importa agora: tarefas, progresso e sua rotina de estudos.'},
+    {target:'[data-tour="new-task"]',title:'Comece com uma tarefa',text:'Registre o que precisa estudar, escolha a matéria, a data e o tempo estimado.'},
+    {target:'[data-tour="focus"]',title:'Use o Modo Foco',text:'Escolha uma matéria e estude por 25 ou 50 minutos. A sessão contará nas suas metas.'},
+    {target:'[data-tour="subjects"]',title:'Acompanhe suas matérias',text:'Veja o progresso de cada disciplina e mantenha metas pequenas e realistas.'},
+    {target:()=>window.innerWidth<=1000?'[data-tour="menu"]':'[data-tour="navigation"]',title:'Toda a plataforma está aqui',text:'Acesse planejamento, provas, calendário, matérias e metas. Nas configurações, você pode refazer este guia.'}
+  ]
+  const [step,setStep]=useState(0)
+  const [box,setBox]=useState(null)
+  useEffect(()=>{
+    let timer
+    const selector=typeof steps[step].target==='function'?steps[step].target():steps[step].target
+    const element=document.querySelector(selector)
+    const update=()=>{
+      const rect=element?.getBoundingClientRect()
+      setBox(rect?{top:rect.top,left:rect.left,width:rect.width,height:rect.height}:null)
+    }
+    element?.scrollIntoView({behavior:'smooth',block:'center'})
+    timer=setTimeout(update,350)
+    window.addEventListener('resize',update)
+    return()=>{clearTimeout(timer);window.removeEventListener('resize',update)}
+  },[step])
+  useEffect(()=>{const close=event=>{if(event.key==='Escape')onFinish()};window.addEventListener('keydown',close);return()=>window.removeEventListener('keydown',close)},[onFinish])
+  const tooltipStyle=box?{left:Math.max(16,Math.min(box.left,window.innerWidth-336)),top:box.top+box.height+210<window.innerHeight?box.top+box.height+16:Math.max(16,box.top-205)}:{left:'50%',top:'50%',transform:'translate(-50%,-50%)'}
+  return <div className="guided-tour" role="dialog" aria-modal="true" aria-label="Apresentação da plataforma"><div className={'tour-blocker '+(box?'':'full')}/>{box&&<div className="tour-highlight" style={{top:box.top-6,left:box.left-6,width:box.width+12,height:box.height+12}}/>}<section className="tour-tooltip" style={tooltipStyle}><div className="tour-count">{step+1} de {steps.length}</div><h2>{steps[step].title}</h2><p>{steps[step].text}</p><div className="tour-progress">{steps.map((_,index)=><i key={index} className={index<=step?'filled':''}/>)}</div><div className="tour-actions"><button type="button" className="tour-skip" onClick={onFinish}>{step===steps.length-1?'Fechar':'Pular apresentação'}</button><span>{step>0&&<button type="button" className="tour-back" onClick={()=>setStep(value=>value-1)}>Voltar</button>}<button type="button" className="tour-next" onClick={()=>step===steps.length-1?onFinish():setStep(value=>value+1)}>{step===steps.length-1?'Começar a usar':'Próximo'} <ChevronRight size={16}/></button></span></div></section></div>
 }
 function DeleteButton({ onConfirm, item, className = '', size = 17 }) {
   const [open, setOpen] = useState(false)
@@ -244,6 +282,7 @@ function App() {
   const [running, setRunning] = useState(false)
   const [installPrompt, setInstallPrompt] = useState(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [tourOpen, setTourOpen] = useState(false)
   const [signOutOpen, setSignOutOpen] = useState(false)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -418,13 +457,13 @@ function App() {
   const subscriptionAllowed = ['active','beta','canceling'].includes(subscription?.status) || (subscription?.status==='canceled' && subscription?.expires_at && new Date(subscription.expires_at)>new Date())
   if (!subscriptionAllowed) return <SubscriptionScreen email={session.user.email} status={subscription?.status} checking={checkingSubscription} onCheck={()=>checkSubscription(true)} onSignOut={()=>supabase.auth.signOut()} />
   if (!cloudReady) return <LoadingScreen />
-  if (!settings.onboardingComplete) return <Onboarding email={session.user.email} onComplete={(name,names)=>{setSubjects(names.map((subject,index)=>({id:Date.now()+index,name:subject,color:['#7c6ee6','#3ebd93','#f3a85f','#ea7186','#4b9bea','#a868d8'][index%6],goal:3})));setTasks([]);setExams([]);setSettings(current=>({...current,name,onboardingComplete:true}))}} />
+  if (!settings.onboardingComplete) return <Onboarding email={session.user.email} onComplete={(name,names,profile)=>{setSubjects(names.map((subject,index)=>({id:Date.now()+index,name:subject,color:['#7c6ee6','#3ebd93','#f3a85f','#ea7186','#4b9bea','#a868d8'][index%6],goal:3})));setTasks([]);setExams([]);setSettings(current=>({...current,name,...profile,onboardingComplete:true}));setTourOpen(true)}} />
 
   return <div className="app-shell"><a className="skip-link" href="#main-content">Ir para o conteúdo</a>
     <aside className={`sidebar ${mobileNav ? 'open' : ''}`}>
       <div className="brand"><div className="brand-mark"><img src="/essence-academy-logo-ui.png" alt=""/></div><span>Essence<span>Academy</span></span></div>
       <button className="close-nav" onClick={() => setMobileNav(false)}><X/></button>
-      <nav>
+      <nav data-tour="navigation">
         {[[LayoutDashboard,'Hoje'],[ListTodo,'Planejamento'],[CalendarDays,'Calendário'],[BookOpen,'Matérias'],[Target,'Metas']].map(([Icon,label]) =>
           <button key={label} className={active === label ? 'active' : ''} onClick={() => {setActive(label); setMobileNav(false)}}><Icon size={19}/>{label}</button>)}
       </nav>
@@ -436,7 +475,7 @@ function App() {
 
     <main>
       <header>
-        <button className="menu-button" onClick={() => setMobileNav(true)}><Menu/></button>
+        <button className="menu-button" data-tour="menu" onClick={() => setMobileNav(true)}><Menu/></button>
         <div className="search"><Search size={18}/><input placeholder="Buscar tarefa ou matéria..." value={query} onChange={e => setQuery(e.target.value)}/></div>
         <div className={`sync-state ${syncStatus}`}><Cloud size={16}/> {syncStatus==='saving'?'Salvando...':syncStatus==='error'?'Sem conexão':'Sincronizado'}</div><div className="streak"><Check size={18}/> <b>{progress}%</b> concluído</div>
         <div className="avatar">{settings.name.split(/\s+/).slice(0,2).map(n=>n[0]).join('').toUpperCase()}</div>
@@ -444,7 +483,7 @@ function App() {
 
       <section className="content" id="main-content">{!isOnline&&<div className="offline-banner" role="status">Você está sem internet. As alterações serão sincronizadas quando a conexão voltar.</div>}
         {active !== 'Hoje' ? <WorkspacePage active={active} tasks={tasks} subjects={subjects} exams={exams} sessions={settings.focusSessions||[]} setTasks={setTasks} setSubjects={setSubjects} setExams={setExams} openTask={()=>setModal(true)}/> : <>
-        <div className="welcome"><div><p className="eyebrow">{todayLabel}</p><h1>Olá, {settings.name.split(' ')[0]}! <span>👋</span></h1><p>Você está indo muito bem. Vamos continuar?</p></div><button className="primary" onClick={() => setModal(true)}><Plus size={19}/> Nova tarefa</button></div>
+        <div className="welcome" data-tour="welcome"><div><p className="eyebrow">{todayLabel}</p><h1>Olá, {settings.name.split(' ')[0]}! <span>👋</span></h1><p>Você está indo muito bem. Vamos continuar?</p></div><button className="primary" data-tour="new-task" onClick={() => setModal(true)}><Plus size={19}/> Nova tarefa</button></div>
 
         <div className="stats-grid">
           <article className="stat"><div className="stat-icon purple"><Clock3/></div><div><span>Tempo concluído</span><strong>{studiedTime}</strong><small>Soma das tarefas finalizadas</small></div></article>
@@ -462,10 +501,10 @@ function App() {
             <div className="progress-row"><span>Progresso diário</span><b>{progress}%</b><div className="progress"><i style={{width:`${progress}%`}}/></div></div>
           </section>
 
-          <aside className="focus-card"><div className="focus-top"><span><Timer size={18}/> {focusMode==='break'?'Pausa curta':'Modo foco'}</span><small>{focusMode==='break'?'5 min':focusDuration+' min'}</small></div>{focusMode==='focus'&&<div className="focus-setup"><select value={focusSubject} onChange={e=>setFocusSubject(e.target.value)} disabled={running} aria-label="Matéria da sessão">{subjects.map(subject=><option key={subject.id}>{subject.name}</option>)}</select><div className="focus-durations">{[25,50].map(minutes=><button type="button" key={minutes} className={focusDuration===minutes?'chosen':''} disabled={running} onClick={()=>{setFocusDuration(minutes);setTimer(minutes*60)}}>{minutes} min</button>)}</div></div>}<div className="timer-ring" style={{background:'conic-gradient(var(--accent) '+Math.round((1-timer/((focusMode==='break'?5:focusDuration)*60))*100)+'%, #ffffff18 0)'}}><div><strong>{mins}:{secs}</strong><span>{focusMode==='break'?'PAUSA':focusSubject||'FOCO'}</span></div></div><h3>{focusMode==='break'?'Respire e recarregue':'Hora de concentrar'}</h3><p>{focusMode==='break'?'Ao terminar, o foco ficará pronto novamente.':'Esta sessão será registrada nas suas metas.'}</p><button onClick={()=>setRunning(!running)}>{running?'Pausar':timer<((focusMode==='break'?5:focusDuration)*60)?'Continuar':'Iniciar sessão'}</button><div className="focus-actions"><button type="button" onClick={()=>{setRunning(false);setFocusMode('break');setTimer(5*60)}}>Pausa 5 min</button><button type="button" onClick={()=>{setRunning(false);setFocusMode('focus');setTimer(focusDuration*60)}}>Reiniciar</button></div></aside>
+          <aside className="focus-card" data-tour="focus"><div className="focus-top"><span><Timer size={18}/> {focusMode==='break'?'Pausa curta':'Modo foco'}</span><small>{focusMode==='break'?'5 min':focusDuration+' min'}</small></div>{focusMode==='focus'&&<div className="focus-setup"><select value={focusSubject} onChange={e=>setFocusSubject(e.target.value)} disabled={running} aria-label="Matéria da sessão">{subjects.map(subject=><option key={subject.id}>{subject.name}</option>)}</select><div className="focus-durations">{[25,50].map(minutes=><button type="button" key={minutes} className={focusDuration===minutes?'chosen':''} disabled={running} onClick={()=>{setFocusDuration(minutes);setTimer(minutes*60)}}>{minutes} min</button>)}</div></div>}<div className="timer-ring" style={{background:'conic-gradient(var(--accent) '+Math.round((1-timer/((focusMode==='break'?5:focusDuration)*60))*100)+'%, #ffffff18 0)'}}><div><strong>{mins}:{secs}</strong><span>{focusMode==='break'?'PAUSA':focusSubject||'FOCO'}</span></div></div><h3>{focusMode==='break'?'Respire e recarregue':'Hora de concentrar'}</h3><p>{focusMode==='break'?'Ao terminar, o foco ficará pronto novamente.':'Esta sessão será registrada nas suas metas.'}</p><button onClick={()=>setRunning(!running)}>{running?'Pausar':timer<((focusMode==='break'?5:focusDuration)*60)?'Continuar':'Iniciar sessão'}</button><div className="focus-actions"><button type="button" onClick={()=>{setRunning(false);setFocusMode('break');setTimer(5*60)}}>Pausa 5 min</button><button type="button" onClick={()=>{setRunning(false);setFocusMode('focus');setTimer(focusDuration*60)}}>Reiniciar</button></div></aside>
         </div>
 
-        <section className="subjects"><div className="section-title"><div><h2>Suas matérias</h2><p>Acompanhe o ritmo de cada área</p></div><button>Ver todas <ChevronRight size={17}/></button></div>
+        <section className="subjects" data-tour="subjects"><div className="section-title"><div><h2>Suas matérias</h2><p>Acompanhe o ritmo de cada área</p></div><button>Ver todas <ChevronRight size={17}/></button></div>
           <div className="subject-grid">{subjects.map(s=>{const stats=weeklySubjectStats(tasks,s,settings.focusSessions||[]);return <article key={s.id} className="subject-card"><div className="subject-top"><div className="subject-icon" style={{background:s.color+'18',color:s.color}}>{s.name.slice(0,2).toUpperCase()}</div><span>{stats.pct}%</span></div><h3>{s.name}</h3><p>{stats.completed} de {stats.goal} sessões nesta semana</p><div className="subject-progress"><i style={{width:stats.pct+'%',background:s.color}}/></div></article>})}</div>
         </section>
         </>}
@@ -485,10 +524,12 @@ function App() {
       <div className="notification-setting"><div><Bell size={19}/><span><strong>Lembretes</strong><small>Receba avisos enquanto o app estiver aberto.</small></span></div><label className="switch"><input name="notifications" type="checkbox" defaultChecked={settings.notifications}/><i/></label></div>
       <div className="form-row"><label>Horário diário<input name="reminderTime" type="time" defaultValue={settings.reminderTime}/></label><label>Avisar prova antes<select name="examDays" defaultValue={settings.examDays}><option value="1">1 dia</option><option value="2">2 dias</option><option value="3">3 dias</option><option value="7">7 dias</option></select></label></div>
       <section className="settings-section"><div className="setting-title"><span><strong>Segurança</strong><small>Altere a senha da sua conta.</small></span></div><label>Nova senha<PasswordField minLength="8" value={newPassword} onChange={e=>setNewPassword(e.target.value)} autoComplete="new-password"/></label><label>Confirmar nova senha<PasswordField minLength="8" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} autoComplete="new-password"/></label><button type="button" className="secondary-action" onClick={changePassword}>Alterar senha</button></section>
+      <section className="settings-section"><div className="setting-title"><span><strong>Conheça a plataforma</strong><small>Veja novamente o passo a passo das principais áreas.</small></span></div><button type="button" className="secondary-action" onClick={()=>{setSettingsOpen(false);setActive('Hoje');setTourOpen(true)}}><BookOpen size={15}/> Refazer apresentação</button></section>
       <section className="settings-section"><div className="setting-title"><span><strong>Backup dos estudos</strong><small>Baixe ou restaure seus dados.</small></span></div><div className="backup-actions"><button type="button" className="secondary-action" onClick={exportBackup}><Download size={15}/> Baixar backup</button><label className="secondary-action file-action">Restaurar backup<input type="file" accept="application/json,.json" onChange={restoreBackup}/></label></div></section>
       {accountMessage&&<div className="auth-message account-message" role="status">{accountMessage}</div>}
       <div className="account-row"><span><strong>Conta conectada</strong><small>{session.user.email}</small></span><button type="button" onClick={()=>setSignOutOpen(true)}><LogOut size={16}/> Sair</button></div><p className="permission-note">O navegador solicitará sua permissão ao ativar os lembretes.</p><button className="primary submit">Salvar configurações</button>
     </form></div></div>}
+    {tourOpen&&<GuidedTour onFinish={()=>{setTourOpen(false);setSettings(current=>({...current,tourComplete:true}))}}/>}
   </div>
 }
 
